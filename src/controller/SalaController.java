@@ -23,9 +23,8 @@ public class SalaController {
     public void atualizarSala(int id_sala, int capacidade) {
         Sala sala = salaDAO.buscarPorId(id_sala);
 
-        if (sala == null) {
+        if (sala == null)
             throw new IllegalArgumentException("Sala não encontrada.");
-        }
 
         sala.setCapacidade(capacidade);
 

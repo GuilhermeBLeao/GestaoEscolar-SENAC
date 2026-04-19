@@ -6,7 +6,6 @@ import dao.FuncionarioDAO;
 import database.ConnectionFactory;
 import model.Endereco;
 import model.Funcionario;
-
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
@@ -14,115 +13,83 @@ import java.util.List;
 public class FuncionarioController {
 
     public void salvarFuncionario(Funcionario funcionario) {
-        if (funcionario == null) {
+        if (funcionario == null)
             throw new IllegalArgumentException("Funcionário não pode ser nulo.");
-        }
-
         normalizarFuncionario(funcionario);
         validarFuncionario(funcionario);
-
         try (Connection conn = ConnectionFactory.getConnection()) {
             conn.setAutoCommit(false);
-
             try {
                 FuncionarioDAO funcionarioDAO = new FuncionarioDAO(conn);
-
-                if (funcionarioDAO.buscarPorCpf(funcionario.getCpf()) != null) {
+                if (funcionarioDAO.existeCpf(funcionario.getCpf()))
                     throw new IllegalArgumentException("Já existe funcionário cadastrado com este CPF.");
-                }
-
                 funcionarioDAO.inserir(funcionario);
                 conn.commit();
-
             } catch (Exception e) {
                 conn.rollback();
                 throw e;
             }
-
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao salvar funcionário.", e);
         }
     }
 
     public void atualizarFuncionario(Funcionario funcionarioAtualizado) {
-        if (funcionarioAtualizado == null) {
+        if (funcionarioAtualizado == null)
             throw new IllegalArgumentException("Funcionário não pode ser nulo.");
-        }
-
-        if (funcionarioAtualizado.getIdFuncionario() <= 0) {
+        if (funcionarioAtualizado.getIdFuncionario() <= 0) 
             throw new IllegalArgumentException("ID do funcionário inválido.");
-        }
-
         normalizarFuncionario(funcionarioAtualizado);
         validarFuncionario(funcionarioAtualizado);
-
         try (Connection conn = ConnectionFactory.getConnection()) {
             conn.setAutoCommit(false);
-
             try {
                 FuncionarioDAO funcionarioDAO = new FuncionarioDAO(conn);
-
                 Funcionario funcionarioBanco = funcionarioDAO.buscarPorId(funcionarioAtualizado.getIdFuncionario());
-                if (funcionarioBanco == null) {
+                if (funcionarioBanco == null)
                     throw new IllegalArgumentException("Funcionário não encontrado.");
-                }
-
                 Funcionario funcionarioComMesmoCpf = funcionarioDAO.buscarPorCpf(funcionarioAtualizado.getCpf());
                 if (funcionarioComMesmoCpf != null
                         && funcionarioComMesmoCpf.getIdFuncionario() != funcionarioAtualizado.getIdFuncionario()) {
                     throw new IllegalArgumentException("Já existe outro funcionário cadastrado com este CPF.");
                 }
-
                 Funcionario funcionarioParaSalvar = mesclarDadosPermitidos(funcionarioBanco, funcionarioAtualizado);
-
                 funcionarioDAO.atualizar(funcionarioParaSalvar);
                 conn.commit();
-
             } catch (Exception e) {
                 conn.rollback();
                 throw e;
             }
-
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao atualizar funcionário.", e);
         }
     }
 
     public boolean excluirFuncionario(int idFuncionario) {
-        if (idFuncionario <= 0) {
+        if (idFuncionario <= 0)
             throw new IllegalArgumentException("ID do funcionário inválido.");
-        }
-
         try (Connection conn = ConnectionFactory.getConnection()) {
             conn.setAutoCommit(false);
-
             try {
                 FuncionarioDAO funcionarioDAO = new FuncionarioDAO(conn);
                 Funcionario funcionario = funcionarioDAO.buscarPorId(idFuncionario);
-
-                if (funcionario == null) {
+                if (funcionario == null)
                     throw new IllegalArgumentException("Funcionário não encontrado.");
-                }
-
                 boolean excluiu = funcionarioDAO.excluir(idFuncionario);
                 conn.commit();
                 return excluiu;
-
             } catch (Exception e) {
                 conn.rollback();
                 throw e;
             }
-
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao excluir funcionário.", e);
         }
     }
 
     public Funcionario buscarFuncionarioPorId(int idFuncionario) {
-        if (idFuncionario <= 0) {
+        if (idFuncionario <= 0)
             throw new IllegalArgumentException("ID do funcionário inválido.");
-        }
-
         try (Connection conn = ConnectionFactory.getConnection()) {
             FuncionarioDAO funcionarioDAO = new FuncionarioDAO(conn);
             return funcionarioDAO.buscarPorId(idFuncionario);
@@ -133,10 +100,8 @@ public class FuncionarioController {
 
     public Funcionario buscarFuncionarioPorCpf(String cpf) {
         String cpfTratado = tratarTexto(cpf);
-        if (cpfTratado == null || cpfTratado.isEmpty()) {
+        if (cpfTratado == null || cpfTratado.isEmpty())
             throw new IllegalArgumentException("CPF é obrigatório para busca.");
-        }
-
         try (Connection conn = ConnectionFactory.getConnection()) {
             FuncionarioDAO funcionarioDAO = new FuncionarioDAO(conn);
             return funcionarioDAO.buscarPorCpf(cpfTratado);
@@ -147,10 +112,8 @@ public class FuncionarioController {
 
     public List<Funcionario> buscarFuncionarioPorNome(String nome) {
         String nomeTratado = tratarTexto(nome);
-        if (nomeTratado == null || nomeTratado.isEmpty()) {
+        if (nomeTratado == null || nomeTratado.isEmpty())
             throw new IllegalArgumentException("Nome é obrigatório para busca.");
-        }
-
         try (Connection conn = ConnectionFactory.getConnection()) {
             FuncionarioDAO funcionarioDAO = new FuncionarioDAO(conn);
             return funcionarioDAO.buscarPorNome(nomeTratado);
@@ -180,24 +143,17 @@ public class FuncionarioController {
         funcionarioBanco.setEmail(funcionarioAtualizado.getEmail());
         funcionarioBanco.setDataNascimento(funcionarioAtualizado.getDataNascimento());
         funcionarioBanco.setDataContratacao(funcionarioAtualizado.getDataContratacao());
-
         atualizarEnderecoExistente(funcionarioBanco, funcionarioAtualizado);
-
         return funcionarioBanco;
     }
 
     private void atualizarEnderecoExistente(Funcionario funcionarioBanco, Funcionario funcionarioAtualizado) {
-        if (funcionarioAtualizado.getEndereco() == null) {
+        if (funcionarioAtualizado.getEndereco() == null)
             throw new IllegalArgumentException("Endereço do funcionário é obrigatório.");
-        }
-
         Endereco enderecoBanco = funcionarioBanco.getEndereco();
         Endereco enderecoAtualizado = funcionarioAtualizado.getEndereco();
-
-        if (enderecoBanco == null) {
+        if (enderecoBanco == null)
             throw new IllegalArgumentException("Funcionário atual não possui endereço cadastrado.");
-        }
-
         enderecoBanco.setRua(tratarTexto(enderecoAtualizado.getRua()));
         enderecoBanco.setNumero(tratarTexto(enderecoAtualizado.getNumero()));
         enderecoBanco.setComplemento(tratarTexto(enderecoAtualizado.getComplemento()));
@@ -215,7 +171,6 @@ public class FuncionarioController {
         funcionario.setRg(tratarTexto(funcionario.getRg()));
         funcionario.setSetor(tratarTexto(funcionario.getSetor()));
         funcionario.setEmail(tratarTexto(funcionario.getEmail()));
-
         if (funcionario.getEndereco() != null) {
             funcionario.getEndereco().setRua(tratarTexto(funcionario.getEndereco().getRua()));
             funcionario.getEndereco().setNumero(tratarTexto(funcionario.getEndereco().getNumero()));
@@ -228,37 +183,22 @@ public class FuncionarioController {
     }
 
     private void validarFuncionario(Funcionario funcionario) {
-        if (funcionario.getNome() == null || funcionario.getNome().isEmpty()) {
+        if (funcionario.getNome() == null || funcionario.getNome().isEmpty())
             throw new IllegalArgumentException("Nome do funcionário é obrigatório.");
-        }
-
-        if (funcionario.getCpf() == null || funcionario.getCpf().isEmpty()) {
+        if (funcionario.getCpf() == null || funcionario.getCpf().isEmpty())
             throw new IllegalArgumentException("CPF do funcionário é obrigatório.");
-        }
-
-        if (funcionario.getCargo() == null || funcionario.getCargo().isEmpty()) {
+        if (funcionario.getCargo() == null || funcionario.getCargo().isEmpty())
             throw new IllegalArgumentException("Cargo do funcionário é obrigatório.");
-        }
-
-        if (funcionario.getTelefone() == null || funcionario.getTelefone().isEmpty()) {
+        if (funcionario.getTelefone() == null || funcionario.getTelefone().isEmpty())
             throw new IllegalArgumentException("Telefone do funcionário é obrigatório.");
-        }
-
-        if (funcionario.getSexo() == null) {
+        if (funcionario.getSexo() == null)
             throw new IllegalArgumentException("Sexo do funcionário é obrigatório.");
-        }
-
-        if (funcionario.getDataNascimento() == null) {
+        if (funcionario.getDataNascimento() == null)
             throw new IllegalArgumentException("Data de nascimento do funcionário é obrigatória.");
-        }
-
-        if (funcionario.getDataContratacao() == null) {
+        if (funcionario.getDataContratacao() == null)
             throw new IllegalArgumentException("Data de contratação do funcionário é obrigatória.");
-        }
-
-        if (funcionario.getEndereco() == null) {
+        if (funcionario.getEndereco() == null)
             throw new IllegalArgumentException("Endereço do funcionário é obrigatório.");
-        }
     }
 
     private String tratarTexto(String valor) {

@@ -26,8 +26,17 @@ public class TurmaController {
     }
 
     public void atualizarTurma(int idTurma, int salaId, String descricaoTurma, Turno turno) {
-        Turma turma = new Turma();
-        turma.setIdTurma(idTurma);
+
+        if (idTurma <= 0) {
+            throw new IllegalArgumentException("ID da turma inválido.");
+        }
+
+        Turma turma = turmaDAO.buscarPorId(idTurma);
+
+        if (turma == null) {
+            throw new IllegalArgumentException("Turma não encontrada.");
+        }
+
         turma.setSalaId(salaId);
         turma.setDescricaoTurma(descricaoTurma);
         turma.setTurno(turno);
@@ -36,6 +45,10 @@ public class TurmaController {
     }
 
     public void excluirTurma(int idTurma) {
+        if (idTurma <= 0) {
+            throw new IllegalArgumentException("ID da turma inválido.");
+        }
+
         turmaDAO.excluir(idTurma);
     }
 
@@ -44,6 +57,10 @@ public class TurmaController {
     }
 
     public Turma buscarTurma(int idTurma) {
+        if (idTurma <= 0) {
+            throw new IllegalArgumentException("ID da turma inválido.");
+        }
+
         return turmaDAO.buscarPorId(idTurma);
     }
 }

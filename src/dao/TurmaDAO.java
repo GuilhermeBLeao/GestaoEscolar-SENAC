@@ -3,6 +3,8 @@
 package dao;
 
 import database.ConnectionFactory;
+import model.Funcionario;
+import model.Sala;
 import model.Turma;
 import variaveisEnum.Turno;
 
@@ -125,29 +127,6 @@ public class TurmaDAO {
         return lista;
     }
 
-    public Turma buscarPorId(int idTurma) {
-        if (idTurma <= 0) {
-            throw new IllegalArgumentException("ID da turma inválido para busca.");
-        }
-
-        try (Connection conn = getConnection();
-             PreparedStatement stmt = conn.prepareStatement(SELECT_BY_ID_SQL)) {
-
-            stmt.setInt(1, idTurma);
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return montarTurma(rs);
-                }
-            }
-
-        } catch (SQLException e) {
-            throw new RuntimeException("Erro ao buscar turma por ID.", e);
-        }
-
-        return null;
-    }
-
     private void preencherStatementTurma(PreparedStatement stmt, Turma turma) throws SQLException {
         stmt.setInt(1, turma.getSalaId());
         stmt.setString(2, turma.getDescricaoTurma());
@@ -179,5 +158,29 @@ public class TurmaDAO {
         if (turma.getTurno() == null) {
             throw new IllegalArgumentException("Turno da turma é obrigatório.");
         }
+    }
+    
+    public Turma buscarPorId(int idTurma) {
+        String sql = "SELECT * FROM turma WHERE id_turma = ?";
+        try (
+            Connection conn = ConnectionFactory.getConnection();
+            PreparedStatement stmt = conn.prepareStatement(sql)
+        ) {
+            stmt.setInt(1, idTurma);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    Turma t = new Turma();
+                    t.setIdTurma(rs.getInt("id_turma"));
+                    t.setSalaId(rs.getInt("sala_id"));
+                    t.setDescricaoTurma(rs.getString("descricao_turma"));
+                    t.setTurno(Turno.valueOf(rs.getString("turno")));
+                    return t;
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao buscar sala por ID.", e);
+        }
+        return null;
     }
 }
