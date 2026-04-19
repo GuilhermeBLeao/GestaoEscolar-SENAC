@@ -1,0 +1,76 @@
+//Arthur e Guilherme
+
+package model;
+
+import java.time.LocalDate;
+import variaveisEnum.SexoEnum;
+
+public class Funcionario{
+	private int idFuncionario;
+	private String nome, cpf, cargo, telefone, rg,  setor, email;
+	private boolean ativo;
+	private LocalDate dataNascimento, dataContratacao;
+	private Endereco endereco;
+	private SexoEnum sexo;
+	
+	public int getIdFuncionario() {return idFuncionario;}
+	public void setIdFuncionario(int idFuncionario) {this.idFuncionario = idFuncionario;}
+	public String getNome() {return nome;}
+	public void setNome(String nome) {
+		if(nome == null || nome.trim().isEmpty())
+			throw new IllegalArgumentException("Campo nome é obrigatório.");
+		this.nome = nome;
+		}
+	public String getCpf() {return cpf;}
+	public void setCpf(String cpf) {
+		if(cpf == null || cpf.trim().isEmpty())
+			throw new IllegalArgumentException("Campo cpf é obrigatório.");
+		this.cpf = cpf;
+		}
+	public String getCargo() {return cargo;}
+	public void setCargo(String cargo) {
+		if(cargo == null || cargo.trim().isEmpty())
+			throw new IllegalArgumentException("Campo cargo é obrigatório.");
+		this.cargo = cargo;
+		}
+	public String getTelefone() {return telefone;}
+	public void setTelefone(String telefone) {
+		if(telefone == null || telefone.trim().isEmpty())
+			throw new IllegalArgumentException("Campo telefone é obrigatório.");
+		this.telefone = telefone;
+		}
+	public String getRg() {return rg;}
+	public void setRg(String rg) {this.rg = rg;}
+	public SexoEnum getSexo() {
+		return sexo;
+	}
+	public void setSexo(SexoEnum sexo) {
+		if(sexo == null)
+			throw new IllegalArgumentException("Campo sexo é obrigatório.");
+		this.sexo = sexo;
+	}
+	public String getSetor() {return setor;}
+	public void setSetor(String setor) {this.setor = setor;}
+	public String getEmail() {return email;}
+	public void setEmail(String email) {this.email = email;}
+	public boolean isAtivo() {return ativo;}
+	public void setAtivo(boolean ativo) {this.ativo = ativo;}
+	public LocalDate getDataNascimento() {return dataNascimento;}
+	public void setDataNascimento(LocalDate dataNascimento) {
+		if(dataNascimento == null)
+			throw new IllegalArgumentException("Campo data de nascimento é obrigatório.");
+		this.dataNascimento = dataNascimento;
+		}
+	public LocalDate getDataContratacao() {return dataContratacao;}
+	public void setDataContratacao(LocalDate dataContratacao) {
+		if(dataContratacao == null)
+			throw new IllegalArgumentException("Campo data de contratação é obrigatório.");
+		this.dataContratacao = dataContratacao;
+		}
+	public Endereco getEndereco() {return endereco;}
+	public void setEndereco(Endereco endereco) {
+		if(endereco == null)
+			throw new IllegalArgumentException("Campo endereço é obrigatório.");
+		this.endereco = endereco;
+	}
+}
