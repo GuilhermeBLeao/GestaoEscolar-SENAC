@@ -5,6 +5,7 @@ package dao;
 import database.ConnectionFactory;
 import model.Usuario;
 import variaveisEnum.TipoUsuario;
+import util.ValidaCPF;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -50,7 +51,6 @@ public class UsuarioDAO {
 
     public void atualizar(Usuario usuario) {
         validarUsuario(usuario);
-
         if (usuario.getIdUsuario() <= 0)
             throw new IllegalArgumentException("ID do usuário inválido para atualização.");
 
@@ -76,7 +76,7 @@ public class UsuarioDAO {
             stmt.setInt(11, usuario.getIdUsuario());
 
             int linhasAfetadas = stmt.executeUpdate();
-            if (linhasAfetadas == 0) 
+            if (linhasAfetadas == 0)
                 throw new RuntimeException("Nenhum usuário foi atualizado.");
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao atualizar usuário.", e);
@@ -122,7 +122,11 @@ public class UsuarioDAO {
     }
 
     public Usuario buscarPorCpf(String cpf) {
-        if (cpf == null || cpf.trim().isEmpty())
+        String cpfTratado = cpf == null ? null : cpf.trim();
+
+        if (cpfTratado == null || cpfTratado.isEmpty())
+            throw new IllegalArgumentException("CPF inválido.");
+        if (!ValidaCPF.isValido(cpfTratado))
             throw new IllegalArgumentException("CPF inválido.");
 
         String sql = "SELECT * FROM usuario WHERE cpf = ?";
@@ -130,7 +134,7 @@ public class UsuarioDAO {
         try (Connection conn = ConnectionFactory.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.setString(1, cpf.trim());
+            stmt.setString(1, cpfTratado);
 
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next())
@@ -151,17 +155,21 @@ public class UsuarioDAO {
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
 
-            while (rs.next()) {
+            while (rs.next())
                 lista.add(montarUsuario(rs));
-            }
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao listar usuários.", e);
         }
+
         return lista;
     }
 
     public boolean existeCpf(String cpf) {
-        if (cpf == null || cpf.trim().isEmpty())
+        String cpfTratado = cpf == null ? null : cpf.trim();
+
+        if (cpfTratado == null || cpfTratado.isEmpty())
+            throw new IllegalArgumentException("CPF inválido.");
+        if (!ValidaCPF.isValido(cpfTratado))
             throw new IllegalArgumentException("CPF inválido.");
 
         String sql = "SELECT 1 FROM usuario WHERE cpf = ?";
@@ -169,25 +177,31 @@ public class UsuarioDAO {
         try (Connection conn = ConnectionFactory.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-            stmt.setString(1, cpf.trim());
+            stmt.setString(1, cpfTratado);
 
             try (ResultSet rs = stmt.executeQuery()) {
                 return rs.next();
             }
-        }catch (SQLException e) {
+        } catch (SQLException e) {
             throw new RuntimeException("Erro ao verificar CPF do usuário.", e);
         }
     }
 
     public Usuario autenticar(String cpf, String senhaInformada) {
-        if (cpf == null || cpf.trim().isEmpty())
+        String cpfTratado = cpf == null ? null : cpf.trim();
+
+        if (cpfTratado == null || cpfTratado.isEmpty())
             throw new IllegalArgumentException("CPF inválido.");
-        if (senhaInformada == null || senhaInformada.trim().isEmpty()) 
+        if (!ValidaCPF.isValido(cpfTratado))
+            throw new IllegalArgumentException("CPF inválido.");
+        if (senhaInformada == null || senhaInformada.trim().isEmpty())
             throw new IllegalArgumentException("Senha inválida.");
-        Usuario usuario = buscarPorCpf(cpf);
+
+        Usuario usuario = buscarPorCpf(cpfTratado);
+
         if (usuario == null)
             return null;
-        if (!usuario.isAtivo()) 
+        if (!usuario.isAtivo())
             return null;
 
         return usuario.validarSenha(senhaInformada) ? usuario : null;
@@ -206,7 +220,7 @@ public class UsuarioDAO {
             stmt.setInt(2, idUsuario);
 
             int linhasAfetadas = stmt.executeUpdate();
-            if (linhasAfetadas == 0) 
+            if (linhasAfetadas == 0)
                 throw new RuntimeException("Nenhum usuário foi atualizado no último login.");
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao atualizar último login do usuário.", e);
@@ -223,11 +237,10 @@ public class UsuarioDAO {
         stmt.setBoolean(7, usuario.isAtivo());
         stmt.setDate(8, Date.valueOf(usuario.getDataCriacao()));
 
-        if (usuario.getUltimoLogin() != null) {
+        if (usuario.getUltimoLogin() != null)
             stmt.setDate(9, Date.valueOf(usuario.getUltimoLogin()));
-        } else {
-            stmt.setNull(9, java.sql.Types.DATE);
-        }
+        else
+            stmt.setNull(9, Types.DATE);
 
         stmt.setString(10, usuario.getTipoUsuario().name());
     }
@@ -264,9 +277,9 @@ public class UsuarioDAO {
             throw new IllegalArgumentException("CPF do usuário é obrigatório.");
         if (usuario.getSenhaHash() == null || usuario.getSenhaHash().trim().isEmpty())
             throw new IllegalArgumentException("Hash da senha é obrigatório.");
-        if (usuario.getDataCriacao() == null) 
+        if (usuario.getDataCriacao() == null)
             throw new IllegalArgumentException("Data de criação é obrigatória.");
-        if (usuario.getTipoUsuario() == null) 
+        if (usuario.getTipoUsuario() == null)
             throw new IllegalArgumentException("Tipo de usuário é obrigatório.");
     }
 }

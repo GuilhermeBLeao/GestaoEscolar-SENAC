@@ -2,55 +2,89 @@
 
 package dao;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.Random;
+import java.sql.*;
+import java.util.concurrent.ThreadLocalRandom;
 
-public class GeradorMatricula{
-	private static final Random GERADOR = new Random();
-	
-	public static String gerar(Connection conn) throws SQLException{
-		int proximoValor = buscarEIncrementarSequencia(conn);
-		
-		StringBuilder sb = new StringBuilder();
-		
-		for(int i = 0;  i < 5;  i++) {
-			sb.append(GERADOR.nextInt(10));
-		}
-		sb.append(String.format("%05d",proximoValor));
-		return sb.toString();
-	}
-	
-	private static int buscarEIncrementarSequencia(Connection conn) throws SQLException{
-		garantirRegistroInicial(conn);
-		
-		String selectSQL = "SELECT ultimo_valor FROM controle_matricula WHERE id = 1";
-		String updateSQL = "UPDATE controle_matricula SET ultimo_valor = ? WHERE id = 1";
-		
-		int ultimoValor;
-		
-		try(PreparedStatement stmtSelect = conn.prepareStatement(selectSQL);
-				 ResultSet rs = stmtSelect.executeQuery()) {
-		            if (!rs.next()) 
-		                throw new SQLException("Registro de controle de matrícula não encontrado.");
-		            ultimoValor = rs.getInt("ultimo_valor");
-		        }
-		        int proximoValor = ultimoValor + 1;
+public class GeradorMatricula {
 
-		        try (PreparedStatement stmtUpdate = conn.prepareStatement(updateSQL)) {
-		            stmtUpdate.setInt(1, proximoValor);
+    private static final int DIGITOS_ALEATORIOS = 5, DIGITOS_SEQUENCIA = 5, MAX_TENTATIVAS = 10;
 
-		            int linhasAfetadas = stmtUpdate.executeUpdate();
-		            if (linhasAfetadas == 0)
-		                throw new SQLException("Não foi possível atualizar a sequência da matrícula.");
-		        }
-		        return proximoValor;
-		    }
-	private static void garantirRegistroInicial(Connection conn) throws SQLException {
+    public static String gerar(Connection conn) throws SQLException {
+        if (conn == null)
+            throw new IllegalArgumentException("Conexão não pode ser nula.");
+
+        garantirRegistroInicial(conn);
+
+        for (int tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
+            int proximoValor = buscarEIncrementarSequencia(conn);
+            String matricula = montarMatricula(proximoValor);
+
+            if (!matriculaJaExiste(conn, matricula))
+                return matricula;
+        }
+
+        throw new SQLException("Não foi possível gerar uma matrícula única após " + MAX_TENTATIVAS + " tentativas.");
+    }
+
+    private static int buscarEIncrementarSequencia(Connection conn) throws SQLException {
+        String updateSql = """
+            UPDATE controle_matricula
+               SET ultimo_valor = ultimo_valor + 1
+             WHERE id = 1
+            """;
+
+        String selectSql = """
+            SELECT ultimo_valor
+              FROM controle_matricula
+             WHERE id = 1
+            """;
+
+        try (PreparedStatement stmtUpdate = conn.prepareStatement(updateSql)) {
+            int linhasAfetadas = stmtUpdate.executeUpdate();
+            if (linhasAfetadas == 0) {
+                throw new SQLException("Não foi possível atualizar a sequência da matrícula.");
+            }
+        }
+
+        try (PreparedStatement stmtSelect = conn.prepareStatement(selectSql);
+             ResultSet rs = stmtSelect.executeQuery()) {
+
+            if (!rs.next()) {
+                throw new SQLException("Registro de controle de matrícula não encontrado.");
+            }
+
+            return rs.getInt("ultimo_valor");
+        }
+    }
+
+    private static String montarMatricula(int valorSequencial) {
+        StringBuilder sb = new StringBuilder();
+
+        for (int i = 0; i < DIGITOS_ALEATORIOS; i++) {
+            sb.append(ThreadLocalRandom.current().nextInt(10));
+        }
+
+        sb.append(String.format("%0" + DIGITOS_SEQUENCIA + "d", valorSequencial));
+        return sb.toString();
+    }
+
+    private static boolean matriculaJaExiste(Connection conn, String matricula) throws SQLException {
+        String sql = "SELECT 1 FROM aluno WHERE matricula = ?";
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, matricula);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    private static void garantirRegistroInicial(Connection conn) throws SQLException {
         String insertSql = """
-            INSERT OR IGNORE INTO controle_matricula (id, ultimo_valor) VALUES (1, 0) """;
+            INSERT OR IGNORE INTO controle_matricula (id, ultimo_valor)
+            VALUES (1, 0)
+            """;
 
         try (PreparedStatement stmtInsert = conn.prepareStatement(insertSql)) {
             stmtInsert.executeUpdate();
