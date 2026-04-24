@@ -2,7 +2,10 @@
 
 package dao;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class GeradorMatricula {
@@ -11,7 +14,7 @@ public class GeradorMatricula {
 
     public static String gerar(Connection conn) throws SQLException {
         if (conn == null)
-            throw new IllegalArgumentException("Conexão não pode ser nula.");
+            throw new IllegalArgumentException("Erro ao conectar ao banco de dados.");
 
         garantirRegistroInicial(conn);
 

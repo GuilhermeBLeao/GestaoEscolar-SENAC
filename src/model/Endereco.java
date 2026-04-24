@@ -2,9 +2,12 @@
 
 package model;
 
+import variaveisEnum.Estado;
+
 public class Endereco {
     private int idEndereco;
-    private String rua, numero, complemento, bairro, cidade, estado, cep;
+    private String rua, numero, complemento, bairro, cidade, cep;
+    private Estado estado;
 
     public int getIdEndereco() {return idEndereco;}
     public void setIdEndereco(int idEndereco) {this.idEndereco = idEndereco;}
@@ -30,13 +33,13 @@ public class Endereco {
             throw new IllegalArgumentException("Campo cidade é obrigatório.");
         this.cidade = cidade;
     }
-    public String getEstado() {return estado;}
-    public void setEstado(String estado) {
-        if (estado == null || estado.trim().isEmpty())
-            throw new IllegalArgumentException("Campo estado é obrigatório.");
-        this.estado = estado;
-    }
-    public String getCep() {return cep;}
+    public Estado getEstado() {return estado;}
+	public void setEstado(Estado estado) {
+		if(estado == null)
+			throw new IllegalArgumentException("Campo estado é obrigatório.");
+		this.estado = estado;
+		}
+	public String getCep() {return cep;}
     public void setCep(String cep) {
         if (cep == null || cep.trim().isEmpty())
             throw new IllegalArgumentException("Campo cep é obrigatório.");

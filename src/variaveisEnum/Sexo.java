@@ -2,7 +2,7 @@
 
 package variaveisEnum;
 
-public enum SexoEnum {
+public enum Sexo {
     MASCULINO,
     FEMININO,
     OUTRO

@@ -1,10 +1,11 @@
-//Márcio e Guilherme
+//Guilherme
 
 package dao;
 
 import model.Aluno;
 import model.Endereco;
-import variaveisEnum.SexoEnum;
+import variaveisEnum.Estado;
+import variaveisEnum.Sexo;
 import variaveisEnum.SituacaoAluno;
 
 import java.sql.*;
@@ -16,21 +17,29 @@ public class AlunoDAO {
     private final Connection conn;
 
     public AlunoDAO(Connection conn) {
-        if (conn == null) 
-            throw new IllegalArgumentException("A conexão não pode ser nula.");
+        if (conn == null) {
+            throw new IllegalArgumentException("Erro ao conectar ao banco de dados.");
+        }
         this.conn = conn;
     }
 
-    public void inserir(Aluno aluno) throws SQLException {
-        validarAluno(aluno);
+    public boolean existeCpf(String cpf) throws SQLException {
+        final String sql = "SELECT 1 FROM aluno WHERE cpf = ?";
 
-        int idEndereco = inserirEndereco(aluno.getEndereco());
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, cpf);
 
-        if (aluno.getMatricula() == null || aluno.getMatricula().trim().isEmpty()) {
-            aluno.setMatricula(GeradorMatricula.gerar(conn));
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next();
+            }
         }
+    }
 
-        String sql = """
+    public void inserir(Aluno aluno) throws SQLException {
+        validarAlunoNaoNulo(aluno);
+        validarEnderecoNaoNulo(aluno.getEndereco());
+
+        final String sql = """
             INSERT INTO aluno (
                 nome,
                 email,
@@ -38,124 +47,77 @@ public class AlunoDAO {
                 sexo,
                 telefone,
                 cpf,
-                rg,
-                obs_saude,
                 data_nascimento,
                 data_cadastro,
                 matricula,
-                id_pais,
-                id_turma,
-                id_endereco)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""";
+                rg,
+                obs_saude,
+                pais_id,
+                turma_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """;
 
         try (PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            stmt.setString(1, aluno.getNome());
-            stmt.setString(2, aluno.getEmail());
-            stmt.setString(3, aluno.getSituacao().name());
-            stmt.setString(4, aluno.getSexo().name());
-            stmt.setString(5, aluno.getTelefone());
-            stmt.setString(6, aluno.getCpf());
-            stmt.setString(7, aluno.getRg());
-            stmt.setString(8, aluno.getObsSaude());
-            stmt.setDate(9, Date.valueOf(aluno.getDataNascimento()));
-            stmt.setDate(10, Date.valueOf(aluno.getDataCadastro()));
-            stmt.setString(11, aluno.getMatricula());
-            stmt.setInt(12, aluno.getIdPais());
-            stmt.setInt(13, aluno.getIdTurma());
-            stmt.setInt(14, idEndereco);
+            preencherAlunoParaInsert(stmt, aluno);
 
             int linhasAfetadas = stmt.executeUpdate();
             if (linhasAfetadas == 0) {
-                throw new SQLException("Falha ao inserir aluno.");
+                throw new SQLException("Falha ao inserir aluno. Nenhuma linha afetada.");
             }
 
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 if (rs.next()) {
                     aluno.setIdAluno(rs.getInt(1));
+                } else {
+                    throw new SQLException("Falha ao inserir aluno. ID não retornado.");
                 }
             }
         }
 
-        aluno.getEndereco().setIdEndereco(idEndereco);
+        inserirEndereco(aluno.getEndereco(), aluno.getIdAluno());
     }
 
     public void atualizar(Aluno aluno) throws SQLException {
-        validarAluno(aluno);
+        validarAlunoNaoNulo(aluno);
+        validarEnderecoNaoNulo(aluno.getEndereco());
 
         if (aluno.getIdAluno() <= 0) {
-            throw new IllegalArgumentException("ID do aluno inválido para atualização.");
+            throw new IllegalArgumentException("ID do aluno inválido.");
         }
 
-        if (aluno.getEndereco() == null || aluno.getEndereco().getIdEndereco() <= 0) {
-            throw new IllegalArgumentException("Endereço do aluno inválido para atualização.");
-        }
-
-        atualizarEndereco(aluno.getEndereco());
-
-        String sql = """
+        final String sql = """
             UPDATE aluno
                SET nome = ?,
                    email = ?,
                    situacao = ?,
                    sexo = ?,
                    telefone = ?,
-                   cpf = ?,
                    rg = ?,
                    obs_saude = ?,
                    data_nascimento = ?,
-                   id_pais = ?,
-                   id_turma = ?
-             WHERE id_aluno = ?""";
+                   pais_id = ?,
+                   turma_id = ?
+             WHERE id_aluno = ?
+            """;
 
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, aluno.getNome());
-            stmt.setString(2, aluno.getEmail());
-            stmt.setString(3, aluno.getSituacao().name());
-            stmt.setString(4, aluno.getSexo().name());
-            stmt.setString(5, aluno.getTelefone());
-            stmt.setString(6, aluno.getCpf());
-            stmt.setString(7, aluno.getRg());
-            stmt.setString(8, aluno.getObsSaude());
-            stmt.setDate(9, Date.valueOf(aluno.getDataNascimento()));
-            stmt.setInt(10, aluno.getIdPais());
-            stmt.setInt(11, aluno.getIdTurma());
-            stmt.setInt(12, aluno.getIdAluno());
+            preencherAlunoParaUpdate(stmt, aluno);
 
             int linhasAfetadas = stmt.executeUpdate();
             if (linhasAfetadas == 0) {
-                throw new SQLException("Nenhum aluno foi atualizado.");
+                throw new SQLException("Falha ao atualizar aluno. Nenhuma linha afetada.");
             }
         }
-    }
 
-    public boolean excluir(int idAluno) throws SQLException {
-        if (idAluno <= 0) {
-            throw new IllegalArgumentException("ID do aluno inválido.");
+        if (existeEnderecoDoAluno(aluno.getIdAluno())) {
+            atualizarEndereco(aluno.getEndereco(), aluno.getIdAluno());
+        } else {
+            inserirEndereco(aluno.getEndereco(), aluno.getIdAluno());
         }
-
-        Integer idEndereco = buscarIdEnderecoPorAluno(idAluno);
-
-        String sqlAluno = "DELETE FROM aluno WHERE id_aluno = ?";
-
-        int linhasAfetadas;
-        try (PreparedStatement stmt = conn.prepareStatement(sqlAluno)) {
-            stmt.setInt(1, idAluno);
-            linhasAfetadas = stmt.executeUpdate();
-        }
-
-        if (linhasAfetadas > 0 && idEndereco != null) {
-            excluirEndereco(idEndereco);
-        }
-
-        return linhasAfetadas > 0;
     }
 
     public Aluno buscarPorId(int idAluno) throws SQLException {
-        if (idAluno <= 0) {
-            throw new IllegalArgumentException("ID do aluno inválido.");
-        }
-
-        String sql = """
+        final String sql = """
             SELECT
                 a.id_aluno,
                 a.nome,
@@ -164,13 +126,13 @@ public class AlunoDAO {
                 a.sexo,
                 a.telefone,
                 a.cpf,
-                a.rg,
-                a.obs_saude,
                 a.data_nascimento,
                 a.data_cadastro,
                 a.matricula,
-                a.id_pais,
-                a.id_turma,
+                a.rg,
+                a.obs_saude,
+                a.pais_id,
+                a.turma_id,
                 e.id_endereco,
                 e.rua,
                 e.numero,
@@ -180,29 +142,24 @@ public class AlunoDAO {
                 e.estado,
                 e.cep
             FROM aluno a
-            INNER JOIN endereco e
-            ON e.id_endereco = a.id_endereco
-            WHERE a.id_aluno = ? """;
+            LEFT JOIN endereco e ON e.aluno_id = a.id_aluno
+            WHERE a.id_aluno = ?
+            """;
 
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, idAluno);
 
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    return montarAluno(rs);
+                    return mapearAluno(rs);
                 }
+                return null;
             }
         }
-
-        return null;
     }
 
     public Aluno buscarPorCpf(String cpf) throws SQLException {
-        if (cpf == null || cpf.trim().isEmpty()) {
-            throw new IllegalArgumentException("CPF inválido.");
-        }
-
-        String sql = """
+        final String sql = """
             SELECT
                 a.id_aluno,
                 a.nome,
@@ -211,13 +168,13 @@ public class AlunoDAO {
                 a.sexo,
                 a.telefone,
                 a.cpf,
-                a.rg,
-                a.obs_saude,
                 a.data_nascimento,
                 a.data_cadastro,
                 a.matricula,
-                a.id_pais,
-                a.id_turma,
+                a.rg,
+                a.obs_saude,
+                a.pais_id,
+                a.turma_id,
                 e.id_endereco,
                 e.rua,
                 e.numero,
@@ -227,29 +184,24 @@ public class AlunoDAO {
                 e.estado,
                 e.cep
             FROM aluno a
-            INNER JOIN endereco e 
-            ON e.id_endereco = a.id_endereco
-            WHERE a.cpf = ? """;
+            LEFT JOIN endereco e ON e.aluno_id = a.id_aluno
+            WHERE a.cpf = ?
+            """;
 
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, cpf.trim());
+            stmt.setString(1, cpf);
 
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    return montarAluno(rs);
+                    return mapearAluno(rs);
                 }
+                return null;
             }
         }
-
-        return null;
     }
 
     public Aluno buscarPorMatricula(String matricula) throws SQLException {
-        if (matricula == null || matricula.trim().isEmpty()) {
-            throw new IllegalArgumentException("Matrícula inválida.");
-        }
-
-        String sql = """
+        final String sql = """
             SELECT
                 a.id_aluno,
                 a.nome,
@@ -258,13 +210,13 @@ public class AlunoDAO {
                 a.sexo,
                 a.telefone,
                 a.cpf,
-                a.rg,
-                a.obs_saude,
                 a.data_nascimento,
                 a.data_cadastro,
                 a.matricula,
-                a.id_pais,
-                a.id_turma,
+                a.rg,
+                a.obs_saude,
+                a.pais_id,
+                a.turma_id,
                 e.id_endereco,
                 e.rua,
                 e.numero,
@@ -274,27 +226,24 @@ public class AlunoDAO {
                 e.estado,
                 e.cep
             FROM aluno a
-            INNER JOIN endereco e
-            ON e.id_endereco = a.id_endereco
-            WHERE a.matricula = ? """;
+            LEFT JOIN endereco e ON e.aluno_id = a.id_aluno
+            WHERE a.matricula = ?
+            """;
 
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, matricula.trim());
+            stmt.setString(1, matricula);
 
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    return montarAluno(rs);
+                    return mapearAluno(rs);
                 }
+                return null;
             }
         }
-
-        return null;
     }
 
-    public List<Aluno> listarTodos() throws SQLException {
-        List<Aluno> alunos = new ArrayList<>();
-
-        String sql = """
+    public List<Aluno> listar() throws SQLException {
+        final String sql = """
             SELECT
                 a.id_aluno,
                 a.nome,
@@ -303,13 +252,13 @@ public class AlunoDAO {
                 a.sexo,
                 a.telefone,
                 a.cpf,
-                a.rg,
-                a.obs_saude,
                 a.data_nascimento,
                 a.data_cadastro,
                 a.matricula,
-                a.id_pais,
-                a.id_turma,
+                a.rg,
+                a.obs_saude,
+                a.pais_id,
+                a.turma_id,
                 e.id_endereco,
                 e.rua,
                 e.numero,
@@ -319,64 +268,72 @@ public class AlunoDAO {
                 e.estado,
                 e.cep
             FROM aluno a
-            INNER JOIN endereco e
-            ON e.id_endereco = a.id_endereco
-            ORDER BY a.nome """;
+            LEFT JOIN endereco e ON e.aluno_id = a.id_aluno
+            ORDER BY a.nome
+            """;
+
+        List<Aluno> alunos = new ArrayList<>();
 
         try (PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
-                alunos.add(montarAluno(rs));
+                alunos.add(mapearAluno(rs));
             }
         }
 
         return alunos;
     }
 
-    public boolean existeCpf(String cpf) throws SQLException {
-        if (cpf == null || cpf.trim().isEmpty()) {
-            throw new IllegalArgumentException("CPF inválido.");
-        }
+    public boolean excluir(int idAluno) throws SQLException {
+        excluirEnderecoPorAlunoId(idAluno);
 
-        String sql = "SELECT 1 FROM aluno WHERE cpf = ?"; //Confere se existe o cadastro deste CPF
+        final String sql = "DELETE FROM aluno WHERE id_aluno = ?";
 
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, cpf.trim());
+            stmt.setInt(1, idAluno);
 
-            try (ResultSet rs = stmt.executeQuery()) {
-                return rs.next();
+            int linhasAfetadas = stmt.executeUpdate();
+            if (linhasAfetadas == 0) {
+                throw new SQLException("Falha ao excluir aluno. Nenhuma linha afetada.");
             }
+
+            return true;
         }
     }
 
-    public boolean existeMatricula(String matricula) throws SQLException {
-        if (matricula == null || matricula.trim().isEmpty()) {
-            throw new IllegalArgumentException("Matrícula inválida.");
-        }
-
-        String sql = "SELECT 1 FROM aluno WHERE matricula = ?";
-
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, matricula.trim());
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                return rs.next();
-            }
-        }
+    private void preencherAlunoParaInsert(PreparedStatement stmt, Aluno aluno) throws SQLException {
+        stmt.setString(1, aluno.getNome());
+        stmt.setString(2, aluno.getEmail());
+        stmt.setString(3, aluno.getSituacao().name());
+        stmt.setString(4, aluno.getSexo().name());
+        stmt.setString(5, aluno.getTelefone());
+        stmt.setString(6, aluno.getCpf());
+        stmt.setDate(7, Date.valueOf(aluno.getDataNascimento()));
+        stmt.setDate(8, Date.valueOf(aluno.getDataCadastro()));
+        stmt.setString(9, aluno.getMatricula());
+        stmt.setString(10, aluno.getRg());
+        stmt.setString(11, aluno.getObsSaude());
+        stmt.setInt(12, aluno.getIdPais());
+        stmt.setInt(13, aluno.getIdTurma());
     }
 
-    private void validarAluno(Aluno aluno) {
-        if (aluno == null) {
-            throw new IllegalArgumentException("Aluno não pode ser nulo.");
-        }
-        if (aluno.getEndereco() == null) {
-            throw new IllegalArgumentException("Endereço do aluno é obrigatório.");
-        }
+    private void preencherAlunoParaUpdate(PreparedStatement stmt, Aluno aluno) throws SQLException {
+        stmt.setString(1, aluno.getNome());
+        stmt.setString(2, aluno.getEmail());
+        stmt.setString(3, aluno.getSituacao().name());
+        stmt.setString(4, aluno.getSexo().name());
+        stmt.setString(5, aluno.getTelefone());
+        stmt.setString(6, aluno.getRg());
+        stmt.setString(7, aluno.getObsSaude());
+        stmt.setDate(8, Date.valueOf(aluno.getDataNascimento()));
+        stmt.setInt(9, aluno.getIdPais());
+        stmt.setInt(10, aluno.getIdTurma());
+        stmt.setInt(11, aluno.getIdAluno());
     }
 
-    private int inserirEndereco(Endereco endereco) throws SQLException {
-        String sql = """
+    private void inserirEndereco(Endereco endereco, int alunoId) throws SQLException {
+        final String sql = """
             INSERT INTO endereco (
                 rua,
                 numero,
@@ -384,35 +341,32 @@ public class AlunoDAO {
                 bairro,
                 cidade,
                 estado,
-                cep)
-                VALUES (?, ?, ?, ?, ?, ?, ?) """;
+                cep,
+                aluno_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """;
 
         try (PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            stmt.setString(1, endereco.getRua());
-            stmt.setString(2, endereco.getNumero());
-            stmt.setString(3, endereco.getComplemento());
-            stmt.setString(4, endereco.getBairro());
-            stmt.setString(5, endereco.getCidade());
-            stmt.setString(6, endereco.getEstado());
-            stmt.setString(7, endereco.getCep());
+            preencherEndereco(stmt, endereco);
+            stmt.setInt(8, alunoId);
 
             int linhasAfetadas = stmt.executeUpdate();
             if (linhasAfetadas == 0) {
-                throw new SQLException("Falha ao inserir endereço.");
+                throw new SQLException("Falha ao inserir endereço do aluno. Nenhuma linha afetada.");
             }
 
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 if (rs.next()) {
-                    return rs.getInt(1);
+                    endereco.setIdEndereco(rs.getInt(1));
+                } else {
+                    throw new SQLException("Falha ao inserir endereço do aluno. ID não retornado.");
                 }
             }
         }
-
-        throw new SQLException("Não foi possível obter o ID do endereço inserido.");
     }
 
-    private void atualizarEndereco(Endereco endereco) throws SQLException {
-        String sql = """
+    private void atualizarEndereco(Endereco endereco, int alunoId) throws SQLException {
+        final String sql = """
             UPDATE endereco
                SET rua = ?,
                    numero = ?,
@@ -421,87 +375,100 @@ public class AlunoDAO {
                    cidade = ?,
                    estado = ?,
                    cep = ?
-             WHERE id_endereco = ? """;
+             WHERE aluno_id = ?
+            """;
 
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, endereco.getRua());
-            stmt.setString(2, endereco.getNumero());
-            stmt.setString(3, endereco.getComplemento());
-            stmt.setString(4, endereco.getBairro());
-            stmt.setString(5, endereco.getCidade());
-            stmt.setString(6, endereco.getEstado());
-            stmt.setString(7, endereco.getCep());
-            stmt.setInt(8, endereco.getIdEndereco());
+            preencherEndereco(stmt, endereco);
+            stmt.setInt(8, alunoId);
 
             int linhasAfetadas = stmt.executeUpdate();
             if (linhasAfetadas == 0) {
-                throw new SQLException("Nenhum endereço foi atualizado.");
+                throw new SQLException("Falha ao atualizar endereço do aluno. Nenhuma linha afetada.");
             }
         }
     }
 
-    private void excluirEndereco(int idEndereco) throws SQLException {
-        String sql = "DELETE FROM endereco WHERE id_endereco = ?";
+    private boolean existeEnderecoDoAluno(int alunoId) throws SQLException {
+        final String sql = "SELECT 1 FROM endereco WHERE aluno_id = ?";
 
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, idEndereco);
+            stmt.setInt(1, alunoId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    private void excluirEnderecoPorAlunoId(int alunoId) throws SQLException {
+        final String sql = "DELETE FROM endereco WHERE aluno_id = ?";
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, alunoId);
             stmt.executeUpdate();
         }
     }
 
-    private Integer buscarIdEnderecoPorAluno(int idAluno) throws SQLException {
-        String sql = "SELECT id_endereco FROM aluno WHERE id_aluno = ?";
-
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, idAluno);
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt("id_endereco");
-                }
-            }
-        }
-
-        return null;
+    private void preencherEndereco(PreparedStatement stmt, Endereco endereco) throws SQLException {
+        stmt.setString(1, endereco.getRua());
+        stmt.setString(2, endereco.getNumero());
+        stmt.setString(3, endereco.getComplemento());
+        stmt.setString(4, endereco.getBairro());
+        stmt.setString(5, endereco.getCidade());
+        stmt.setString(6, endereco.getEstado().name());
+        stmt.setString(7, endereco.getCep());
     }
 
-    private Aluno montarAluno(ResultSet rs) throws SQLException {
-        Aluno aluno = new Aluno(rs.getString("matricula"));
+    private Aluno mapearAluno(ResultSet rs) throws SQLException {
+        Aluno aluno = new Aluno();
+
         aluno.setIdAluno(rs.getInt("id_aluno"));
         aluno.setNome(rs.getString("nome"));
         aluno.setEmail(rs.getString("email"));
         aluno.setSituacao(SituacaoAluno.valueOf(rs.getString("situacao")));
-        aluno.setSexo(SexoEnum.valueOf(rs.getString("sexo")));
+        aluno.setSexo(Sexo.valueOf(rs.getString("sexo")));
         aluno.setTelefone(rs.getString("telefone"));
         aluno.setCpf(rs.getString("cpf"));
+        aluno.setDataNascimento(rs.getDate("data_nascimento").toLocalDate());
+        aluno.setDataCadastro(rs.getDate("data_cadastro").toLocalDate());
+        aluno.setMatricula(rs.getString("matricula"));
         aluno.setRg(rs.getString("rg"));
         aluno.setObsSaude(rs.getString("obs_saude"));
+        aluno.setIdPais(rs.getInt("pais_id"));
+        aluno.setIdTurma(rs.getInt("turma_id"));
 
-        Date dataNascimento = rs.getDate("data_nascimento");
-        if (dataNascimento != null) {
-            aluno.setDataNascimento(dataNascimento.toLocalDate());
+        if (rs.getObject("id_endereco") != null) {
+            aluno.setEndereco(mapearEndereco(rs));
         }
 
-        Date dataCadastro = rs.getDate("data_cadastro");
-        if (dataCadastro != null) {
-            aluno.setDataCadastro(dataCadastro.toLocalDate());
-        }
+        return aluno;
+    }
 
-        aluno.setIdPais(rs.getInt("id_pais"));
-        aluno.setIdTurma(rs.getInt("id_turma"));
-
+    private Endereco mapearEndereco(ResultSet rs) throws SQLException {
         Endereco endereco = new Endereco();
+
         endereco.setIdEndereco(rs.getInt("id_endereco"));
         endereco.setRua(rs.getString("rua"));
         endereco.setNumero(rs.getString("numero"));
         endereco.setComplemento(rs.getString("complemento"));
         endereco.setBairro(rs.getString("bairro"));
         endereco.setCidade(rs.getString("cidade"));
-        endereco.setEstado(rs.getString("estado"));
+        endereco.setEstado(Estado.valueOf(rs.getString("estado")));
         endereco.setCep(rs.getString("cep"));
 
-        aluno.setEndereco(endereco);
+        return endereco;
+    }
 
-        return aluno;
+    private void validarAlunoNaoNulo(Aluno aluno) {
+        if (aluno == null) {
+            throw new IllegalArgumentException("Aluno não pode ser nulo.");
+        }
+    }
+
+    private void validarEnderecoNaoNulo(Endereco endereco) {
+        if (endereco == null) {
+            throw new IllegalArgumentException("Endereço do aluno não pode ser nulo.");
+        }
     }
 }

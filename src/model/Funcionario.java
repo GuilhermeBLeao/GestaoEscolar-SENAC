@@ -3,7 +3,7 @@
 package model;
 
 import java.time.LocalDate;
-import variaveisEnum.SexoEnum;
+import variaveisEnum.Sexo;
 
 public class Funcionario{
 	private int idFuncionario;
@@ -11,7 +11,7 @@ public class Funcionario{
 	private boolean ativo;
 	private LocalDate dataNascimento, dataContratacao;
 	private Endereco endereco;
-	private SexoEnum sexo;
+	private Sexo sexo;
 	
 	public int getIdFuncionario() {return idFuncionario;}
 	public void setIdFuncionario(int idFuncionario) {this.idFuncionario = idFuncionario;}
@@ -41,10 +41,10 @@ public class Funcionario{
 		}
 	public String getRg() {return rg;}
 	public void setRg(String rg) {this.rg = rg;}
-	public SexoEnum getSexo() {
+	public Sexo getSexo() {
 		return sexo;
 	}
-	public void setSexo(SexoEnum sexo) {
+	public void setSexo(Sexo sexo) {
 		if(sexo == null)
 			throw new IllegalArgumentException("Campo sexo é obrigatório.");
 		this.sexo = sexo;
