@@ -2,10 +2,13 @@
 
 package model;
 
+import java.time.LocalDate;
+
 public class Nota{
 	private int notasId, idDisciplina, idAluno;
 	private String atividade;
 	private double nota;
+	private LocalDate dataLancamento;
 	
 	public int getNotasId() {return notasId;}
 	public void setNotasId(int notasId) {this.notasId = notasId;}
@@ -27,4 +30,6 @@ public class Nota{
 			throw new IllegalArgumentException("Nota inválida, digite uma nota de 0,0 a 10,0");
 		this.nota = nota;
 		}
+	public LocalDate getDataLancamento() {return dataLancamento;}
+	public void setDataLancamento(LocalDate dataLancamento) {	this.dataLancamento = dataLancamento;}
 }

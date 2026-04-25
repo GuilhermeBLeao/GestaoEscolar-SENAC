@@ -241,6 +241,53 @@ public class AlunoDAO {
             }
         }
     }
+    
+    public List<Aluno> listarPorTurma(int idTurma) throws SQLException{
+    		if(idTurma <= 0)
+    			throw new IllegalArgumentException("ID da turma inválido");
+    		final String sql = """
+    				SELECT
+    					a.id_aluno,
+    					a.nome,
+    					a.email,
+    					a.situacao,
+    					a.sexo,
+    					a.telefone,
+    					a.cpf,
+    					a.data_nascimento,
+    					a.data_cadastro,
+    					a.matricula,
+    					a.rg,
+    					a.obs_saude,
+    					a.pais_id,
+    					a.turma_id,
+    					e.id_endereco,
+    				    e.rua,
+    				    e.numero,
+    				    e.complemento,
+    				    e.bairro,
+    				    e.cidade,
+    				    e.estado,
+    				    e.cep
+    				    FROM aluno a
+    				    LEFT JOIN endereco e
+    				    ON e.aluno_id = a.id_aluno
+    				    WHERE a.turma_id = ?
+    				    ORDER BY a.nome
+    				""";
+    		List<Aluno> alunos = new ArrayList<>();
+    		
+    		try(PreparedStatement stmt = conn.prepareStatement(sql)){
+    			stmt.setInt(1, idTurma);
+    			
+    			try(ResultSet rs = stmt.executeQuery()){
+    				while(rs.next()) {
+    					alunos.add(mapearAluno(rs));
+    				}
+    			}
+    		}
+    		return alunos;
+    }
 
     public List<Aluno> listar() throws SQLException {
         final String sql = """
