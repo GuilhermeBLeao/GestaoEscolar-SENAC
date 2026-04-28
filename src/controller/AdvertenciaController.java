@@ -21,6 +21,7 @@ public class AdvertenciaController {
         if (professorId <= 0) {
             throw new IllegalArgumentException("ID do professor é inválido.");
         }
+
         if (turmaId <= 0) {
             throw new IllegalArgumentException("ID da turma é inválido.");
         }
@@ -62,7 +63,7 @@ public class AdvertenciaController {
                 AdvertenciaDAO advertenciaDAO = new AdvertenciaDAO(conn);
 
                 for (AdvertenciaItem item : advertencia.getItens()) {
-                    if (!itemPossuiAdvertencia(item)) {
+                    if (!itemValidoParaSalvar(item)) {
                         continue;
                     }
 
@@ -70,8 +71,8 @@ public class AdvertenciaController {
                     advertenciaAluno.setAlunoId(item.getIdAluno());
                     advertenciaAluno.setTurmaId(advertencia.getTurmaId());
                     advertenciaAluno.setProfessorId(advertencia.getProfessorId());
-                    advertenciaAluno.setMotivo(item.getMotivo());
-                    advertenciaAluno.setDescricao(item.getDescricao());
+                    advertenciaAluno.setMotivo(item.getMotivo().trim());
+                    advertenciaAluno.setDescricao(item.getDescricao().trim());
                     advertenciaAluno.setDataAdvertencia(advertencia.getDataAdvertencia());
 
                     advertenciaDAO.inserir(advertenciaAluno);
@@ -93,21 +94,33 @@ public class AdvertenciaController {
         if (advertencia == null) {
             throw new IllegalArgumentException("Advertência não pode ser nula.");
         }
+
         if (advertencia.getProfessorId() <= 0) {
             throw new IllegalArgumentException("ID do professor é obrigatório.");
         }
+
         if (advertencia.getTurmaId() <= 0) {
             throw new IllegalArgumentException("ID da turma é obrigatório.");
         }
+
         if (advertencia.getDataAdvertencia() == null) {
             throw new IllegalArgumentException("Data da advertência é obrigatória.");
         }
+
         if (advertencia.getDataAdvertencia().isAfter(LocalDate.now())) {
             throw new IllegalArgumentException("Data da advertência não pode ser futura.");
         }
+
         if (advertencia.getItens() == null || advertencia.getItens().isEmpty()) {
             throw new IllegalArgumentException("A advertência precisa conter ao menos 1 aluno.");
         }
+
+        for (AdvertenciaItem item : advertencia.getItens()) {
+            if (itemPreenchido(item) && item.getIdAluno() <= 0) {
+                throw new IllegalArgumentException("Aluno inválido em um dos itens preenchidos.");
+            }
+        }
+
         if (!existeItemComAdvertencia(advertencia.getItens())) {
             throw new IllegalArgumentException("Selecione ao menos 1 aluno e informe motivo e descrição.");
         }
@@ -115,19 +128,23 @@ public class AdvertenciaController {
 
     private boolean existeItemComAdvertencia(List<AdvertenciaItem> itens) {
         for (AdvertenciaItem item : itens) {
-            if (itemPossuiAdvertencia(item)) {
+            if (itemValidoParaSalvar(item)) {
                 return true;
             }
         }
+
         return false;
     }
 
-    private boolean itemPossuiAdvertencia(AdvertenciaItem item) {
+    private boolean itemPreenchido(AdvertenciaItem item) {
         return item != null
-                && item.getIdAluno() > 0
                 && item.getMotivo() != null
                 && !item.getMotivo().trim().isEmpty()
                 && item.getDescricao() != null
                 && !item.getDescricao().trim().isEmpty();
+    }
+
+    private boolean itemValidoParaSalvar(AdvertenciaItem item) {
+        return itemPreenchido(item) && item.getIdAluno() > 0;
     }
 }

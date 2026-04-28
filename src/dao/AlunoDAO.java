@@ -1,4 +1,4 @@
-//Guilherme
+//Guilherme e Igor
 
 package dao;
 
@@ -477,8 +477,14 @@ public class AlunoDAO {
         aluno.setSexo(Sexo.valueOf(rs.getString("sexo")));
         aluno.setTelefone(rs.getString("telefone"));
         aluno.setCpf(rs.getString("cpf"));
-        aluno.setDataNascimento(rs.getDate("data_nascimento").toLocalDate());
-        aluno.setDataCadastro(rs.getDate("data_cadastro").toLocalDate());
+        Date dataNascimento = rs.getDate("data_nascimento");
+        if (dataNascimento != null) {
+        	aluno.setDataNascimento(dataNascimento.toLocalDate());
+        }
+        Date dataCadastro = rs.getDate("data_cadastro");
+        if(dataCadastro != null) {
+        	aluno.setDataCadastro(dataCadastro.toLocalDate());
+        }
         aluno.setMatricula(rs.getString("matricula"));
         aluno.setRg(rs.getString("rg"));
         aluno.setObsSaude(rs.getString("obs_saude"));

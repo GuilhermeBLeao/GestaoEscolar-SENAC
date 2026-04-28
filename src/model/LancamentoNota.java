@@ -19,6 +19,8 @@ public class LancamentoNota {
 	public void setDataLancamento(LocalDate dataLancamento) {
 	    if (dataLancamento == null) {
 	        throw new IllegalArgumentException("Campo data de lançamento é obrigatória.");
+	    }else if(dataLancamento.isAfter(LocalDate.now())) {
+	    	throw new IllegalArgumentException("Data de lançamento não pode ser futura.");
 	    }
 	    this.dataLancamento = dataLancamento;
 	}

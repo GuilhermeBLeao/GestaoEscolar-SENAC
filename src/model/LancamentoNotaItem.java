@@ -20,7 +20,7 @@ public class LancamentoNotaItem {
 	public double getNota() {return nota;}
 	public void setNota(double nota) {
 		if(nota < 0 || nota > 10)
-			throw new IllegalArgumentException("Nota deve estrar entre 0 e 10.");
+			throw new IllegalArgumentException("Nota deve estar entre 0 e 10.");
 		this.nota = nota;
 		}
 }
