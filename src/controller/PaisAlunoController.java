@@ -314,6 +314,44 @@ public class PaisAlunoController {
         }
     }
 
+    public PaisAluno buscarPaisAlunoPorCpfMae(String cpfMae) {
+        String cpfTratado = normalizarCpf(cpfMae);
+
+        if (cpfTratado == null || cpfTratado.isBlank()) {
+            throw new IllegalArgumentException("CPF da mãe é obrigatório para busca");
+        }
+
+        if (ValidaCPF.isValido(cpfTratado)) {
+            throw new IllegalArgumentException("CPF da mãe inválido.");
+        }
+
+        try (Connection conn = ConnectionFactory.getConnection()) {
+            PaisAlunoDAO paisAlunoDAO = new PaisAlunoDAO(conn);
+            return paisAlunoDAO.buscarPorCpfMae(cpfTratado);
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao buscar pais/responsáveis por CPF da mãe", e);
+        }
+    }
+
+    public PaisAluno buscarPaisAlunoPorCpfPai(String cpfPai) {
+        String cpfTratado = normalizarCpf(cpfPai);
+
+        if (cpfTratado == null || cpfTratado.isBlank()) {
+            throw new IllegalArgumentException("CPF do pai é obrigatório para busca");
+        }
+
+        if (ValidaCPF.isValido(cpfTratado)) {
+            throw new IllegalArgumentException("CPF do pai inválido");
+        }
+
+        try (Connection conn = ConnectionFactory.getConnection()) {
+            PaisAlunoDAO paisAlunoDAO = new PaisAlunoDAO(conn);
+            return paisAlunoDAO.buscarPorCpfPai(cpfTratado);
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao buscar pais/responsáveis por CPF do pai", e);
+        }
+    }
+
     public List<PaisAluno> listarPaisAlunos() {
         try (Connection conn = ConnectionFactory.getConnection()) {
             PaisAlunoDAO paisAlunoDAO = new PaisAlunoDAO(conn);
