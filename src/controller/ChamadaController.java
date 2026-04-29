@@ -85,7 +85,7 @@ public class ChamadaController{
                             chamada.getData()
                     );
                 	
-                	//Se já existir lança excessão
+                	//Se já existir lança exceção
                     if (existente != null) {
                         throw new IllegalArgumentException("Já existe chamada para esta disciplina, "
                         		+ "data e um dos alunos selecionados.");
