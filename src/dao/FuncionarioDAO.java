@@ -10,6 +10,7 @@ import variaveisEnum.Sexo;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import variaveisEnum.Perfil;
 
 public class FuncionarioDAO {
 
@@ -50,8 +51,9 @@ public class FuncionarioDAO {
                 email,
                 ativo,
                 data_nascimento,
-                data_contratacao
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                data_contratacao,
+                perfil
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
         try (PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -93,7 +95,8 @@ public class FuncionarioDAO {
                    email = ?,
                    ativo = ?,
                    data_nascimento = ?,
-                   data_contratacao = ?
+                   data_contratacao = ?,
+                   perfil = ?
              WHERE id_funcionario = ?
             """;
 
@@ -135,7 +138,8 @@ public class FuncionarioDAO {
                 e.bairro,
                 e.cidade,
                 e.estado,
-                e.cep
+                e.cep,
+                f.perfil
             FROM funcionario f
             LEFT JOIN endereco e ON e.funcionario_id = f.id_funcionario
             WHERE f.id_funcionario = ?
@@ -168,6 +172,7 @@ public class FuncionarioDAO {
                 f.ativo,
                 f.data_nascimento,
                 f.data_contratacao,
+                f.perfil,
                 e.id_endereco,
                 e.rua,
                 e.numero,
@@ -208,6 +213,7 @@ public class FuncionarioDAO {
                 f.ativo,
                 f.data_nascimento,
                 f.data_contratacao,
+                f.perfil,
                 e.id_endereco,
                 e.rua,
                 e.numero,
@@ -252,6 +258,7 @@ public class FuncionarioDAO {
                 f.ativo,
                 f.data_nascimento,
                 f.data_contratacao,
+                f.perfil,
                 e.id_endereco,
                 e.rua,
                 e.numero,
@@ -307,6 +314,7 @@ public class FuncionarioDAO {
         stmt.setBoolean(9, funcionario.isAtivo());
         stmt.setDate(10, Date.valueOf(funcionario.getDataNascimento()));
         stmt.setDate(11, Date.valueOf(funcionario.getDataContratacao()));
+        stmt.setString(12, funcionario.getPerfil().name());
     }
 
     private void preencherFuncionarioParaUpdate(PreparedStatement stmt, Funcionario funcionario) throws SQLException {
@@ -320,7 +328,9 @@ public class FuncionarioDAO {
         stmt.setBoolean(8, funcionario.isAtivo());
         stmt.setDate(9, Date.valueOf(funcionario.getDataNascimento()));
         stmt.setDate(10, Date.valueOf(funcionario.getDataContratacao()));
-        stmt.setInt(11, funcionario.getIdFuncionario());
+        stmt.setString(11, funcionario.getPerfil().name());
+        stmt.setInt(12, funcionario.getIdFuncionario());
+
     }
 
     private void inserirEndereco(Endereco endereco, int funcionarioId) throws SQLException {
@@ -430,6 +440,11 @@ public class FuncionarioDAO {
         if (rs.getObject("id_endereco") != null) {
             funcionario.setEndereco(mapearEndereco(rs));
         }
+
+        String perfilStr = rs.getString("perfil");
+    if (perfilStr != null) {
+        funcionario.setPerfil(Perfil.valueOf(perfilStr));
+    }
 
         return funcionario;
     }
