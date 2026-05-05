@@ -321,7 +321,7 @@ public class PaisAlunoController {
             throw new IllegalArgumentException("CPF da mãe é obrigatório para busca");
         }
 
-        if (ValidaCPF.isValido(cpfTratado)) {
+        if (!ValidaCPF.isValido(cpfTratado)) {
             throw new IllegalArgumentException("CPF da mãe inválido.");
         }
 
@@ -340,7 +340,7 @@ public class PaisAlunoController {
             throw new IllegalArgumentException("CPF do pai é obrigatório para busca");
         }
 
-        if (ValidaCPF.isValido(cpfTratado)) {
+        if (!ValidaCPF.isValido(cpfTratado)) {
             throw new IllegalArgumentException("CPF do pai inválido");
         }
 
