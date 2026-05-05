@@ -2,24 +2,33 @@
 
 package util;
 
-import java.util.Set;
+import variaveisEnum.Estado;
 
 public final class ValidaEstado {
-
-    private static final Set<String> UFS = Set.of(
-        "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES",
-        "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR",
-        "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC",
-        "SP", "SE", "TO"
-    );
 
     private ValidaEstado() {}
 
     public static boolean isValido(String estado) {
-        if (estado == null) 
+        if (estado == null || estado.trim().isEmpty()) {
             return false;
+        }
 
-        String uf = estado.trim().toUpperCase();
-        return UFS.contains(uf);
+        try {
+            Estado.valueOf(estado.trim().toUpperCase());
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+    
+    public static String getNomeCompleto(String estado) {
+        validar(estado);
+        return Estado.valueOf(estado.trim().toUpperCase()).getNomeCompleto();
+    }
+
+    public static void validar(String estado) {
+        if (!isValido(estado)) {
+            throw new IllegalArgumentException("Estado inválido.");
+        }
     }
 }
