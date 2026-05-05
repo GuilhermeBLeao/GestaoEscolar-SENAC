@@ -3,7 +3,10 @@
 package controller;
 
 import dao.AlunoDAO;
+import dao.DisciplinaDAO;
 import dao.PresencaDAO;
+import dao.ProfessorDAO;
+import dao.TurmaDAO;
 import database.ConnectionFactory;
 import model.Aluno;
 import model.Chamada;
@@ -29,6 +32,14 @@ public class ChamadaController{
 		}
 		
 		try(Connection conn = ConnectionFactory.getConnection()){
+            validarExistenciasRelacionamentos(
+                    new ProfessorDAO(conn),
+                    new TurmaDAO(conn),
+                    new DisciplinaDAO(conn),
+                    professorId,
+                    turmaId,
+                    disciplinaId
+            );
 			//Cria o DAO
 			AlunoDAO alunoBanco = new AlunoDAO(conn);
 			//Busca todos os alunos daquela turma
@@ -75,6 +86,14 @@ public class ChamadaController{
 
             try {
                 PresencaDAO presencaDAO = new PresencaDAO(conn);
+                validarExistenciasRelacionamentos(
+                        new ProfessorDAO(conn),
+                        new TurmaDAO(conn),
+                        new DisciplinaDAO(conn),
+                        chamada.getProfessorId(),
+                        chamada.getTurmaId(),
+                        chamada.getDisciplinaId()
+                );
                 
                 //Loop dos alunos
                 for (ChamadaItem item : chamada.getItens()) {
@@ -117,6 +136,27 @@ public class ChamadaController{
 
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao salvar chamada.", e);
+        }
+    }
+
+    private void validarExistenciasRelacionamentos(
+            ProfessorDAO professorDAO,
+            TurmaDAO turmaDAO,
+            DisciplinaDAO disciplinaDAO,
+            int professorId,
+            int turmaId,
+            int disciplinaId
+    ) throws SQLException {
+        if (professorDAO.buscarPorId(professorId) == null) {
+            throw new IllegalArgumentException("Professor informado não existe.");
+        }
+
+        if (turmaDAO.buscarPorId(turmaId) == null) {
+            throw new IllegalArgumentException("Turma informada não existe.");
+        }
+
+        if (disciplinaDAO.buscarPorId(disciplinaId) == null) {
+            throw new IllegalArgumentException("Disciplina informada não existe.");
         }
     }
 

@@ -3,6 +3,9 @@
 package controller;
 
 import dao.AtividadeDiaDAO;
+import dao.DisciplinaDAO;
+import dao.ProfessorDAO;
+import dao.TurmaDAO;
 import database.ConnectionFactory;
 import model.AtividadeDia;
 
@@ -25,6 +28,19 @@ public class AtividadeDiaController {
             throw new IllegalArgumentException("ID da disciplina é inválido.");
         }
 
+        try (Connection conn = ConnectionFactory.getConnection()) {
+            validarExistenciasRelacionamentos(
+                    new ProfessorDAO(conn),
+                    new TurmaDAO(conn),
+                    new DisciplinaDAO(conn),
+                    professorId,
+                    turmaId,
+                    disciplinaId
+            );
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao validar relacionamentos da atividade do dia.", e);
+        }
+
         AtividadeDia atividade = new AtividadeDia();
 
         atividade.setProfessorId(professorId);
@@ -45,6 +61,14 @@ public class AtividadeDiaController {
             }
 
             AtividadeDiaDAO atividadeDAO = new AtividadeDiaDAO(conn);
+            validarExistenciasRelacionamentos(
+                    new ProfessorDAO(conn),
+                    new TurmaDAO(conn),
+                    new DisciplinaDAO(conn),
+                    atividade.getProfessorId(),
+                    atividade.getTurmaId(),
+                    atividade.getDisciplinaId()
+            );
 
             AtividadeDia existente = atividadeDAO.buscarPorTurmaDisciplinaData(
                     atividade.getTurmaId(),
@@ -62,6 +86,27 @@ public class AtividadeDiaController {
 
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao salvar atividade do dia.", e);
+        }
+    }
+
+    private void validarExistenciasRelacionamentos(
+            ProfessorDAO professorDAO,
+            TurmaDAO turmaDAO,
+            DisciplinaDAO disciplinaDAO,
+            int professorId,
+            int turmaId,
+            int disciplinaId
+    ) throws SQLException {
+        if (professorDAO.buscarPorId(professorId) == null) {
+            throw new IllegalArgumentException("Professor informado não existe.");
+        }
+
+        if (turmaDAO.buscarPorId(turmaId) == null) {
+            throw new IllegalArgumentException("Turma informada não existe.");
+        }
+
+        if (disciplinaDAO.buscarPorId(disciplinaId) == null) {
+            throw new IllegalArgumentException("Disciplina informada não existe.");
         }
     }
 

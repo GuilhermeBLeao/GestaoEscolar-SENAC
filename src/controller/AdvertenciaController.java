@@ -4,6 +4,8 @@ package controller;
 
 import dao.AdvertenciaDAO;
 import dao.AlunoDAO;
+import dao.ProfessorDAO;
+import dao.TurmaDAO;
 import database.ConnectionFactory;
 import model.Advertencia;
 import model.AdvertenciaItem;
@@ -27,6 +29,12 @@ public class AdvertenciaController {
         }
 
         try (Connection conn = ConnectionFactory.getConnection()) {
+            validarExistenciasRelacionamentos(
+                    new ProfessorDAO(conn),
+                    new TurmaDAO(conn),
+                    professorId,
+                    turmaId
+            );
             AlunoDAO alunoBanco = new AlunoDAO(conn);
             List<Aluno> alunos = alunoBanco.listarPorTurma(turmaId);
 
@@ -61,11 +69,21 @@ public class AdvertenciaController {
 
             try {
                 AdvertenciaDAO advertenciaDAO = new AdvertenciaDAO(conn);
+                AlunoDAO alunoDAO = new AlunoDAO(conn);
+
+                validarExistenciasRelacionamentos(
+                        new ProfessorDAO(conn),
+                        new TurmaDAO(conn),
+                        advertencia.getProfessorId(),
+                        advertencia.getTurmaId()
+                );
 
                 for (AdvertenciaItem item : advertencia.getItens()) {
                     if (!itemValidoParaSalvar(item)) {
                         continue;
                     }
+
+                    validarExistenciaAluno(alunoDAO, item.getIdAluno());
 
                     Advertencia advertenciaAluno = new Advertencia();
                     advertenciaAluno.setAlunoId(item.getIdAluno());
@@ -87,6 +105,27 @@ public class AdvertenciaController {
 
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao salvar advertência.", e);
+        }
+    }
+
+    private void validarExistenciasRelacionamentos(
+            ProfessorDAO professorDAO,
+            TurmaDAO turmaDAO,
+            int professorId,
+            int turmaId
+    ) throws SQLException {
+        if (professorDAO.buscarPorId(professorId) == null) {
+            throw new IllegalArgumentException("Professor informado não existe.");
+        }
+
+        if (turmaDAO.buscarPorId(turmaId) == null) {
+            throw new IllegalArgumentException("Turma informada não existe.");
+        }
+    }
+
+    private void validarExistenciaAluno(AlunoDAO alunoDAO, int alunoId) throws SQLException {
+        if (alunoDAO.buscarPorId(alunoId) == null) {
+            throw new IllegalArgumentException("Aluno informado em uma advertência não existe.");
         }
     }
 

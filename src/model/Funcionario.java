@@ -6,6 +6,8 @@ import java.time.LocalDate;
 
 import util.ValidaCPF;
 import variaveisEnum.Sexo;
+import variaveisEnum.Perfil;
+import variaveisEnum.Permissao;
 
 public class Funcionario{
 	private int idFuncionario;
@@ -14,6 +16,7 @@ public class Funcionario{
 	private LocalDate dataNascimento, dataContratacao;
 	private Endereco endereco;
 	private Sexo sexo;
+	private Perfil perfil;
 	
 	public int getIdFuncionario() {return idFuncionario;}
 	public void setIdFuncionario(int idFuncionario) {
@@ -93,4 +96,14 @@ public class Funcionario{
 			throw new IllegalArgumentException("Campo endereço é obrigatório.");
 		this.endereco = endereco;
 	}
+	public Perfil getPerfil() {return perfil;}
+	public void setPerfil(Perfil perfil) {
+	    if (perfil == null)
+	        throw new IllegalArgumentException("Perfil é obrigatório.");
+	    this.perfil = perfil;
+	 }
+	 public boolean temPermissao(Permissao permissao) {
+	    if (perfil == null) return false;
+	    return perfil.getPermissoes().contains(permissao);
+	 }
 }
