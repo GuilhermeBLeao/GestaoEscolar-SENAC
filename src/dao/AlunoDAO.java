@@ -332,6 +332,42 @@ public class AlunoDAO {
         return alunos;
     }
 
+    public void transferirTurma(int idAluno, int novaIdTurma) throws SQLException {
+        if (idAluno <= 0)
+            throw new IllegalArgumentException("ID do aluno inválido.");
+        if (novaIdTurma <= 0)
+            throw new IllegalArgumentException("ID da nova turma inválido.");
+
+        final String sql = "UPDATE aluno SET turma_id = ? WHERE id_aluno = ?";
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, novaIdTurma);
+            stmt.setInt(2, idAluno);
+
+            int linhasAfetadas = stmt.executeUpdate();
+            if (linhasAfetadas == 0)
+                throw new SQLException("Falha ao transferir aluno. Nenhuma linha afetada.");
+        }
+    }
+
+    public void atualizarSituacao(int idAluno, variaveisEnum.SituacaoAluno situacao) throws SQLException {
+        if (idAluno <= 0)
+            throw new IllegalArgumentException("ID do aluno inválido.");
+        if (situacao == null)
+            throw new IllegalArgumentException("Situação não pode ser nula.");
+
+        final String sql = "UPDATE aluno SET situacao = ? WHERE id_aluno = ?";
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, situacao.name());
+            stmt.setInt(2, idAluno);
+
+            int linhasAfetadas = stmt.executeUpdate();
+            if (linhasAfetadas == 0)
+                throw new SQLException("Falha ao atualizar situação do aluno. Nenhuma linha afetada.");
+        }
+    }
+
     public boolean excluir(int idAluno) throws SQLException {
         excluirEnderecoPorAlunoId(idAluno);
 

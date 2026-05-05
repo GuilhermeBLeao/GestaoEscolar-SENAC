@@ -4,9 +4,11 @@ package controller;
 
 import dao.AlunoDAO;
 import dao.GeradorMatricula;
+import dao.TurmaDAO;
 import database.ConnectionFactory;
 import model.Aluno;
 import model.Endereco;
+import variaveisEnum.SituacaoAluno;
 import util.ValidaCEP;
 import util.ValidaCPF;
 import util.ValidaCidade;
@@ -244,6 +246,57 @@ public class AlunoController {
     private String normalizarCep(String cep) {
         String valor = tratarTexto(cep);
         return valor == null ? null : valor.replaceAll("\\D", "");
+    }
+
+    public void matricularAluno(Aluno aluno) {
+        salvarAluno(aluno);
+    }
+
+    public void transferirParaTurma(int idAluno, int novaIdTurma) {
+        if (idAluno <= 0)
+            throw new IllegalArgumentException("ID do aluno inválido.");
+        if (novaIdTurma <= 0)
+            throw new IllegalArgumentException("ID da nova turma inválido.");
+
+        executarEmTransacao(conn -> {
+            AlunoDAO alunoDAO = new AlunoDAO(conn);
+            TurmaDAO turmaDAO = new TurmaDAO(conn);
+
+            Aluno aluno = alunoDAO.buscarPorId(idAluno);
+            if (aluno == null)
+                throw new IllegalArgumentException("Aluno não encontrado.");
+
+            if (aluno.getSituacao() != SituacaoAluno.ATIVO)
+                throw new IllegalArgumentException("Somente alunos com situação ATIVO podem ser transferidos de turma.");
+
+            if (aluno.getIdTurma() == novaIdTurma)
+                throw new IllegalArgumentException("O aluno já pertence à turma informada.");
+
+            if (turmaDAO.buscarPorId(novaIdTurma) == null)
+                throw new IllegalArgumentException("Turma de destino não encontrada.");
+
+            alunoDAO.transferirTurma(idAluno, novaIdTurma);
+            return null;
+        }, "Erro ao transferir aluno de turma.");
+    }
+
+    public void transferirExterno(int idAluno) {
+        if (idAluno <= 0)
+            throw new IllegalArgumentException("ID do aluno inválido.");
+
+        executarEmTransacao(conn -> {
+            AlunoDAO alunoDAO = new AlunoDAO(conn);
+
+            Aluno aluno = alunoDAO.buscarPorId(idAluno);
+            if (aluno == null)
+                throw new IllegalArgumentException("Aluno não encontrado.");
+
+            if (aluno.getSituacao() == SituacaoAluno.TRANSFERIDO)
+                throw new IllegalArgumentException("Aluno já possui situação TRANSFERIDO.");
+
+            alunoDAO.atualizarSituacao(idAluno, SituacaoAluno.TRANSFERIDO);
+            return null;
+        }, "Erro ao registrar transferência externa do aluno.");
     }
 
     public void salvarAluno(Aluno aluno) {
