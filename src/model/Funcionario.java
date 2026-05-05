@@ -3,6 +3,8 @@
 package model;
 
 import java.time.LocalDate;
+
+import util.ValidaCPF;
 import variaveisEnum.Sexo;
 
 public class Funcionario{
@@ -14,7 +16,12 @@ public class Funcionario{
 	private Sexo sexo;
 	
 	public int getIdFuncionario() {return idFuncionario;}
-	public void setIdFuncionario(int idFuncionario) {this.idFuncionario = idFuncionario;}
+	public void setIdFuncionario(int idFuncionario) {
+		if(idFuncionario <= 0) {
+			throw new IllegalArgumentException("ID do funcionário é inválido.");
+		}
+		this.idFuncionario = idFuncionario;
+		}
 	public String getNome() {return nome;}
 	public void setNome(String nome) {
 		if(nome == null || nome.trim().isEmpty())
@@ -23,10 +30,18 @@ public class Funcionario{
 		}
 	public String getCpf() {return cpf;}
 	public void setCpf(String cpf) {
-		if(cpf == null || cpf.trim().isEmpty())
-			throw new IllegalArgumentException("Campo cpf é obrigatório.");
-		this.cpf = cpf;
-		}
+	    if (this.cpf != null && !this.cpf.isBlank()) {
+	        throw new IllegalArgumentException("CPF não pode ser alterado após ser definido.");
+	    }
+
+	    String cpfTratado = cpf.trim().replaceAll("\\D", "");
+
+	    if (!ValidaCPF.isValido(cpfTratado)) {
+	        throw new IllegalArgumentException("CPF inválido.");
+	    }
+
+	    this.cpf = cpfTratado;
+	}
 	public String getCargo() {return cargo;}
 	public void setCargo(String cargo) {
 		if(cargo == null || cargo.trim().isEmpty())
@@ -50,7 +65,12 @@ public class Funcionario{
 		this.sexo = sexo;
 	}
 	public String getSetor() {return setor;}
-	public void setSetor(String setor) {this.setor = setor;}
+	public void setSetor(String setor) {
+		if(setor == null || setor.trim().isEmpty()) {
+			throw new IllegalArgumentException("Campo setir é obrigatório.");
+		}
+		this.setor = setor;
+		}
 	public String getEmail() {return email;}
 	public void setEmail(String email) {this.email = email;}
 	public boolean isAtivo() {return ativo;}

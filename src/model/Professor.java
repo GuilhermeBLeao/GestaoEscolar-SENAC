@@ -4,14 +4,24 @@ package model;
 
 import java.time.LocalDate;
 
+import util.ValidaCPF;
+import variaveisEnum.Sexo;
+
 public class Professor{
 	private int idProfessor;
 	private String nome, cpf, formacao, telefone, rg;
 	private LocalDate dataNascimento;
 	private Endereco endereco;
+	private Sexo sexo;
+	private boolean ativo;
 	
 	public int getIdProfessor() {return idProfessor;}
-	public void setIdProfessor(int idProfessor) {this.idProfessor = idProfessor;}
+	public void setIdProfessor(int idProfessor) {
+		if(idProfessor <= 0) {
+			throw new IllegalArgumentException("ID do professor é inválido.");
+		}
+		this.idProfessor = idProfessor;
+		}
 	public String getTelefone() {return telefone;}
 	public void setTelefone(String telefone) {this.telefone = telefone;}
 	public String getRg() {return rg;}
@@ -30,10 +40,18 @@ public class Professor{
 		}
 	public String getCpf() {return cpf;}
 	public void setCpf(String cpf) {
-		if(cpf == null || cpf.trim().isEmpty())
-    		throw new IllegalArgumentException("Campo CPF é obrigatório.");
-		this.cpf = cpf;
-		}
+	    if (this.cpf != null && !this.cpf.isBlank()) {
+	        throw new IllegalArgumentException("CPF não pode ser alterado após ser definido.");
+	    }
+
+	    String cpfTratado = cpf.trim().replaceAll("\\D", "");
+
+	    if (!ValidaCPF.isValido(cpfTratado)) {
+	        throw new IllegalArgumentException("CPF inválido.");
+	    }
+
+	    this.cpf = cpfTratado;
+	}
 	public String getFormacao() {return formacao;}
 	public void setFormacao(String formacao) {
 		if(formacao == null || formacao.trim().isEmpty())
@@ -46,4 +64,13 @@ public class Professor{
 			throw new IllegalArgumentException("Campo endereço é obrigatório.");
 		this.endereco = endereco;
 	}
+	public Sexo getSexo() {return sexo;}
+	public void setSexo(Sexo sexo) {
+		if(sexo == null) {
+			throw new IllegalArgumentException("Campo sexo é obrigatório.");
+		}
+		this.sexo = sexo;
+	}
+	public boolean isAtivo() {return ativo;}
+	public void setAtivo(boolean ativo) {this.ativo = ativo;}
 }
