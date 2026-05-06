@@ -111,6 +111,62 @@ public class PaisAlunoDAO {
         }
     }
 
+    public PaisAluno buscarPorCpfMae(String cpfMae) throws SQLException {
+        final String sql = """
+            SELECT
+                id_pais,
+                nome_mae,
+                nome_pai,
+                email_mae,
+                email_pai,
+                telefone_mae,
+                telefone_pai,
+                cpf_mae,
+                cpf_pai
+            FROM pais_aluno
+            WHERE cpf_mae = ?
+            """;
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, cpfMae);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapearPaisAluno(rs);
+                }
+                return null;
+            }
+        }
+    }
+
+    public PaisAluno buscarPorCpfPai(String cpfPai) throws SQLException {
+        final String sql = """
+            SELECT
+                id_pais,
+                nome_mae,
+                nome_pai,
+                email_mae,
+                email_pai,
+                telefone_mae,
+                telefone_pai,
+                cpf_mae,
+                cpf_pai
+            FROM pais_aluno
+            WHERE cpf_pai = ?
+            """;
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, cpfPai);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapearPaisAluno(rs);
+                }
+                return null;
+            }
+        }
+    }
+
     public PaisAluno buscarPorId(int idPais) throws SQLException {
         final String sql = """
             SELECT

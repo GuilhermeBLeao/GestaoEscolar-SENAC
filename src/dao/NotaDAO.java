@@ -27,8 +27,9 @@ public class NotaDAO {
                 id_disciplina,
                 id_aluno,
                 atividade,
-                nota
-            ) VALUES (?, ?, ?, ?)
+                nota,
+                data_lancamento
+            ) VALUES (?, ?, ?, ?, ?)
             """;
 
         try (PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -36,6 +37,7 @@ public class NotaDAO {
             stmt.setInt(2, nota.getIdAluno());
             stmt.setString(3, nota.getAtividade());
             stmt.setDouble(4, nota.getNota());
+            stmt.setDate(5, Date.valueOf(nota.getDataLancamento()));
 
             int linhasAfetadas = stmt.executeUpdate();
             if (linhasAfetadas == 0) {
@@ -61,13 +63,15 @@ public class NotaDAO {
 
         final String sql = """
             UPDATE nota
-               SET nota = ?
+               SET nota = ?,
+                   data_lancamento = ?
              WHERE notas_id = ?
             """;
 
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setDouble(1, nota.getNota());
-            stmt.setInt(2, nota.getNotasId());
+            stmt.setDate(2, Date.valueOf(nota.getDataLancamento()));
+            stmt.setInt(3, nota.getNotasId());
 
             int linhasAfetadas = stmt.executeUpdate();
             if (linhasAfetadas == 0) {
@@ -78,7 +82,7 @@ public class NotaDAO {
 
     public Nota buscarPorId(int idNota) throws SQLException {
         final String sql = """
-            SELECT notas_id, id_disciplina, id_aluno, atividade, nota
+            SELECT notas_id, id_disciplina, id_aluno, atividade, nota, data_lancamento
             FROM nota
             WHERE notas_id = ?
             """;
@@ -112,7 +116,7 @@ public class NotaDAO {
 
     public List<Nota> listar() throws SQLException {
         final String sql = """
-            SELECT notas_id, id_disciplina, id_aluno, atividade, nota
+            SELECT notas_id, id_disciplina, id_aluno, atividade, nota, data_lancamento
             FROM nota
             ORDER BY id_aluno, id_disciplina, atividade
             """;
@@ -132,7 +136,7 @@ public class NotaDAO {
 
     public List<Nota> listarPorAluno(int idAluno) throws SQLException {
         final String sql = """
-            SELECT notas_id, id_disciplina, id_aluno, atividade, nota
+            SELECT notas_id, id_disciplina, id_aluno, atividade, nota, data_lancamento
             FROM nota
             WHERE id_aluno = ?
             ORDER BY id_disciplina, atividade
@@ -155,7 +159,7 @@ public class NotaDAO {
 
     public List<Nota> listarPorDisciplina(int idDisciplina) throws SQLException {
         final String sql = """
-            SELECT notas_id, id_disciplina, id_aluno, atividade, nota
+            SELECT notas_id, id_disciplina, id_aluno, atividade, nota, data_lancamento
             FROM nota
             WHERE id_disciplina = ?
             ORDER BY id_aluno, atividade
@@ -176,13 +180,45 @@ public class NotaDAO {
         return notas;
     }
 
+    public Nota buscarPorAlunoDisciplinaAtividade(int idAluno, int idDisciplina, String atividade)
+            throws SQLException {
+
+        final String sql = """
+            SELECT notas_id, id_disciplina, id_aluno, atividade, nota, data_lancamento
+            FROM nota
+            WHERE id_aluno = ?
+              AND id_disciplina = ?
+              AND atividade = ?
+            """;
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, idAluno);
+            stmt.setInt(2, idDisciplina);
+            stmt.setString(3, atividade);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapearNota(rs);
+                }
+                return null;
+            }
+        }
+    }
+
     private Nota mapearNota(ResultSet rs) throws SQLException {
         Nota nota = new Nota();
+
         nota.setNotasId(rs.getInt("notas_id"));
         nota.setIdDisciplina(rs.getInt("id_disciplina"));
         nota.setIdAluno(rs.getInt("id_aluno"));
         nota.setAtividade(rs.getString("atividade"));
         nota.setNota(rs.getDouble("nota"));
+
+        Date dataLancamento = rs.getDate("data_lancamento");
+        if (dataLancamento != null) {
+            nota.setDataLancamento(dataLancamento.toLocalDate());
+        }
+
         return nota;
     }
 
