@@ -2,22 +2,27 @@
 
 package util;
 
-public class ValidaCEP {
+public final class ValidaCEP {
+
+    private ValidaCEP() {}
 
     public static boolean isValido(String cep) {
-        if (cep == null) return false;
-
-        // Remove tudo que não for número
-        cep = cep.replaceAll("\\D", "");
-
-        // CEP no Brasil tem exatamente 8 dígitos
-        if (cep.length() != 8) 
+        if (cep == null) {
             return false;
+        }
 
-        // Evita CEP com todos os números iguais (ex: 00000000)
-        if (cep.chars().distinct().count() == 1)
+        String valor = cep.replaceAll("\\D", "");
+
+        if (valor.length() != 8) {
             return false;
+        }
 
-        return true;
+        return valor.chars().distinct().count() != 1;
+    }
+
+    public static void validar(String cep) {
+        if (!isValido(cep)) {
+            throw new IllegalArgumentException("CEP inválido.");
+        }
     }
 }

@@ -6,6 +6,11 @@ public enum TipoUsuario {
     ALUNO,
     RESPONSAVEL,
     PROFESSOR,
-    FUNCIONARIO,
-    ADMIN
+    SECRETARIA,
+    DIRECAO,
+    PEDAGOGICO;
+
+    public boolean isAdministrativo() {
+        return this == SECRETARIA || this == DIRECAO || this == PEDAGOGICO;
+    }
 }

@@ -1,4 +1,5 @@
-//Igor
+/*Igor
+Guilherme adicionou sexo, e exclusão lógica*/
 
 package controller;
 
@@ -18,300 +19,50 @@ import java.time.LocalDate;
 import java.util.List;
 
 public class ProfessorController {
+    @FunctionalInterface private interface AcaoTransacional<T> { T executar(Connection conn) throws SQLException; }
+    private <T> T executarEmTransacao(AcaoTransacional<T> acao, String mensagemOperacao) { try (Connection conn = ConnectionFactory.getConnection()) { conn.setAutoCommit(false); try { T r = acao.executar(conn); conn.commit(); return r; } catch (IllegalArgumentException e) { try { conn.rollback(); } catch (SQLException ex) { e.addSuppressed(ex); } throw e; } catch (SQLException | RuntimeException e) { try { conn.rollback(); } catch (SQLException ex) { e.addSuppressed(ex); } throw new RuntimeException(mensagemOperacao, e); } } catch (IllegalArgumentException e) { throw e; } catch (Exception e) { throw new RuntimeException("Erro ao obter conexão com o banco de dados.", e); } }
+    private void validarNaoNulo(Professor p) { if (p == null) throw new IllegalArgumentException("Professor não pode ser nulo."); }
+    private String tratarTexto(String v) { return v == null ? null : v.trim(); }
+    private String normalizarCpf(String v) { String t = tratarTexto(v); return t == null ? null : t.replaceAll("\\D", ""); }
+    private String normalizarTelefone(String v) { String t = tratarTexto(v); return t == null ? null : t.replaceAll("\\D", ""); }
+    private String normalizarCep(String v) { String t = tratarTexto(v); return t == null ? null : t.replaceAll("\\D", ""); }
+    private void normalizar(Professor p) { p.setNome(tratarTexto(p.getNome())); p.setCpf(normalizarCpf(p.getCpf())); p.setFormacao(tratarTexto(p.getFormacao())); p.setTelefone(normalizarTelefone(p.getTelefone())); p.setRg(tratarTexto(p.getRg())); Endereco e = p.getEndereco(); if (e != null) { e.setRua(tratarTexto(e.getRua())); e.setNumero(tratarTexto(e.getNumero())); e.setComplemento(tratarTexto(e.getComplemento())); e.setBairro(tratarTexto(e.getBairro())); e.setCidade(tratarTexto(e.getCidade())); e.setCep(normalizarCep(e.getCep())); } }
+    private void validarEndereco(Endereco e) { if (e == null) throw new IllegalArgumentException("Endereço é obrigatório."); ValidaCidade.validar(e.getCidade()); if (e.getEstado() == null) throw new IllegalArgumentException("Estado é obrigatório."); if (!ValidaCEP.isValido(e.getCep())) throw new IllegalArgumentException("CEP inválido."); }
+    private void validarCamposBase(Professor p) { ValidaNome.validar(p.getNome()); if (p.getCpf() == null || !ValidaCPF.isValido(p.getCpf())) throw new IllegalArgumentException("CPF do professor inválido."); if (p.getFormacao() == null || p.getFormacao().isBlank()) throw new IllegalArgumentException("Formação do professor é obrigatória."); if (!ValidaTelefone.isValido(p.getTelefone())) throw new IllegalArgumentException("Telefone do professor inválido."); if (p.getDataNascimento() == null || p.getDataNascimento().isAfter(LocalDate.now())) throw new IllegalArgumentException("Data de nascimento do professor inválida."); if (p.getSexo() == null) throw new IllegalArgumentException("Sexo do professor é obrigatório."); validarEndereco(p.getEndereco()); }
+    private void validarCpfImutavel(Professor a, Professor b) { if (!b.getCpf().equals(a.getCpf())) throw new IllegalArgumentException("CPF do professor não pode ser alterado após o cadastro."); }
+    private Professor mesclar(Professor b, Professor a) { b.setNome(a.getNome()); b.setFormacao(a.getFormacao()); b.setTelefone(a.getTelefone()); b.setRg(a.getRg()); b.setDataNascimento(a.getDataNascimento()); b.setSexo(a.getSexo()); b.setEndereco(a.getEndereco()); return b; }
+    private void informarSeInativo(Professor p) { if (p != null && !p.isAtivo()) System.out.println("ATENÇÃO: professor encontrado, porém está inativo."); }
+    private Professor buscarEmTodosPorId(ProfessorDAO dao, int idProfessor) throws SQLException { for (Professor p : dao.listarTodos()) if (p.getIdProfessor() == idProfessor) return p; return null; }
+    private Professor buscarEmTodosPorCpf(ProfessorDAO dao, String cpf) throws SQLException { for (Professor p : dao.listarTodos()) if (cpf.equals(p.getCpf())) return p; return null; }
+    private Professor buscarEmTodosPorNome(ProfessorDAO dao, String nome) throws SQLException { for (Professor p : dao.listarTodos()) if (nome.equalsIgnoreCase(p.getNome())) return p; return null; }
 
-    @FunctionalInterface
-    private interface AcaoTransacional<T> {
-        T executar(Connection conn) throws SQLException;
-    }
+    // Salva um novo professor após validar dados obrigatórios e impedir CPF duplicado.
+    public void salvarProfessor(Professor professor) { validarNaoNulo(professor); normalizar(professor); validarCamposBase(professor); executarEmTransacao(conn -> { ProfessorDAO dao = new ProfessorDAO(conn); if (dao.existeCpf(professor.getCpf())) throw new IllegalArgumentException("Já existe professor cadastrado com este CPF."); dao.inserir(professor); return null; }, "Erro ao salvar professor."); }
 
-    private <T> T executarEmTransacao(AcaoTransacional<T> acao, String mensagemOperacao) {
-        try (Connection conn = ConnectionFactory.getConnection()) {
-            conn.setAutoCommit(false);
+    // Atualiza um professor ativo, mantendo o CPF imutável.
+    public void atualizarProfessor(Professor professorAtualizado) { validarNaoNulo(professorAtualizado); if (professorAtualizado.getIdProfessor() <= 0) throw new IllegalArgumentException("ID do professor inválido."); normalizar(professorAtualizado); validarCamposBase(professorAtualizado); executarEmTransacao(conn -> { ProfessorDAO dao = new ProfessorDAO(conn); Professor banco = buscarEmTodosPorId(dao, professorAtualizado.getIdProfessor()); if (banco == null) throw new IllegalArgumentException("Professor não encontrado."); if (!banco.isAtivo()) throw new IllegalArgumentException("Não é possível atualizar professor inativo."); validarCpfImutavel(professorAtualizado, banco); dao.atualizar(mesclar(banco, professorAtualizado)); return null; }, "Erro ao atualizar professor."); }
 
-            try {
-                T resultado = acao.executar(conn);
-                conn.commit();
-                return resultado;
+    // Realiza exclusão lógica do professor, inativando o cadastro no banco.
+    public boolean excluirProfessor(int idProfessor) { if (idProfessor <= 0) throw new IllegalArgumentException("ID do professor inválido."); return executarEmTransacao(conn -> { ProfessorDAO dao = new ProfessorDAO(conn); if (buscarEmTodosPorId(dao, idProfessor) == null) throw new IllegalArgumentException("Professor não encontrado."); return dao.inativar(idProfessor); }, "Erro ao excluir professor."); }
 
-            } catch (IllegalArgumentException e) {
-                try {
-                    conn.rollback();
-                } catch (SQLException rollbackEx) {
-                    e.addSuppressed(rollbackEx);
-                }
-                throw e;
+    // Reativa um professor previamente inativado.
+    public boolean reativarProfessor(int idProfessor) { if (idProfessor <= 0) throw new IllegalArgumentException("ID do professor inválido."); return executarEmTransacao(conn -> new ProfessorDAO(conn).reativar(idProfessor), "Erro ao reativar professor."); }
 
-            } catch (SQLException | RuntimeException e) {
-                try {
-                    conn.rollback();
-                } catch (SQLException rollbackEx) {
-                    e.addSuppressed(rollbackEx);
-                }
-                throw new RuntimeException(mensagemOperacao, e);
-            }
+    // Busca professor por ID, retornando também inativos e avisando quando o cadastro estiver inativo.
+    public Professor buscarProfessorPorId(int idProfessor) { if (idProfessor <= 0) throw new IllegalArgumentException("ID do professor inválido."); try (Connection conn = ConnectionFactory.getConnection()) { ProfessorDAO dao = new ProfessorDAO(conn); Professor p = dao.buscarPorId(idProfessor); if (p == null) p = buscarEmTodosPorId(dao, idProfessor); if (p == null) throw new IllegalArgumentException("Professor não encontrado."); informarSeInativo(p); return p; } catch (SQLException e) { throw new RuntimeException("Erro ao buscar professor por ID.", e); } }
 
-        } catch (IllegalArgumentException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao obter conexão com o banco de dados.", e);
-        }
-    }
+    // Busca professor por CPF, retornando também inativos e avisando quando o cadastro estiver inativo.
+    public Professor buscarProfessorPorCpf(String cpf) { String c = normalizarCpf(cpf); if (c == null || !ValidaCPF.isValido(c)) throw new IllegalArgumentException("CPF do professor inválido."); try (Connection conn = ConnectionFactory.getConnection()) { ProfessorDAO dao = new ProfessorDAO(conn); Professor p = dao.buscarPorCpf(c); if (p == null) p = buscarEmTodosPorCpf(dao, c); if (p == null) throw new IllegalArgumentException("Professor não encontrado."); informarSeInativo(p); return p; } catch (SQLException e) { throw new RuntimeException("Erro ao buscar professor por CPF.", e); } }
 
-    private void validarProfessorNaoNulo(Professor professor) {
-        if (professor == null) {
-            throw new IllegalArgumentException("Professor não pode ser nulo.");
-        }
-    }
+    // Busca professor por nome, retornando também inativos e avisando quando o cadastro estiver inativo.
+    public Professor buscarProfessorPorNome(String nome) { String n = tratarTexto(nome); if (n == null || n.isBlank()) throw new IllegalArgumentException("Nome do professor é obrigatório."); try (Connection conn = ConnectionFactory.getConnection()) { ProfessorDAO dao = new ProfessorDAO(conn); Professor p = dao.buscarPorNome(n); if (p == null) p = buscarEmTodosPorNome(dao, n); if (p == null) throw new IllegalArgumentException("Professor não encontrado."); informarSeInativo(p); return p; } catch (SQLException e) { throw new RuntimeException("Erro ao buscar professor por nome.", e); } }
 
-    private void normalizarProfessor(Professor professor) {
-        professor.setNome(tratarTexto(professor.getNome()));
-        professor.setCpf(normalizarCpf(professor.getCpf()));
-        professor.setFormacao(tratarTexto(professor.getFormacao()));
-        professor.setTelefone(normalizarTelefone(professor.getTelefone()));
-        professor.setRg(tratarTexto(professor.getRg()));
-
-        Endereco endereco = professor.getEndereco();
-        if (endereco != null) {
-            endereco.setRua(tratarTexto(endereco.getRua()));
-            endereco.setNumero(tratarTexto(endereco.getNumero()));
-            endereco.setComplemento(tratarTexto(endereco.getComplemento()));
-            endereco.setBairro(tratarTexto(endereco.getBairro()));
-            endereco.setCidade(tratarTexto(endereco.getCidade()));
-            endereco.setCep(normalizarCep(endereco.getCep()));
-        }
-    }
-
-    private void validarParaCadastro(Professor professor) {
-        validarCamposBase(professor);
-    }
-
-    private void validarParaAtualizacao(Professor professorAtualizado, Professor professorBanco) {
-        validarCamposBase(professorAtualizado);
-        validarCpfImutavel(professorAtualizado, professorBanco);
-    }
-
-    private void validarCamposBase(Professor professor) {
-        ValidaNome.validar(professor.getNome());
-
-        if (!ValidaCPF.isValido(professor.getCpf())) {
-            throw new IllegalArgumentException("CPF do professor inválido.");
-        }
-
-        if (professor.getFormacao() == null || professor.getFormacao().isBlank()) {
-            throw new IllegalArgumentException("Formação do professor é obrigatória.");
-        }
-
-        if (!ValidaTelefone.isValido(professor.getTelefone())) {
-            throw new IllegalArgumentException("Telefone do professor inválido.");
-        }
-
-        if (professor.getDataNascimento() == null) {
-            throw new IllegalArgumentException("Data de nascimento do professor é obrigatória.");
-        }
-
-        if (professor.getDataNascimento().isAfter(LocalDate.now())) {
-            throw new IllegalArgumentException("Data de nascimento do professor não pode ser futura.");
-        }
-
-        validarEndereco(professor.getEndereco());
-    }
-
-    private void validarCpfImutavel(Professor professorAtualizado, Professor professorBanco) {
-        if (!professorBanco.getCpf().equals(professorAtualizado.getCpf())) {
-            throw new IllegalArgumentException("CPF do professor não pode ser alterado após o cadastro.");
-        }
-    }
-
-    private void validarEndereco(Endereco endereco) {
-        if (endereco == null) {
-            throw new IllegalArgumentException("Endereço é obrigatório.");
-        }
-
-        ValidaCidade.validar(endereco.getCidade());
-
-        if (!ValidaCEP.isValido(endereco.getCep())) {
-            throw new IllegalArgumentException("CEP inválido.");
-        }
-    }
-
-    private Professor mesclarDadosPermitidos(Professor professorBanco, Professor professorAtualizado) {
-        professorBanco.setNome(professorAtualizado.getNome());
-        professorBanco.setFormacao(professorAtualizado.getFormacao());
-        professorBanco.setTelefone(professorAtualizado.getTelefone());
-        professorBanco.setRg(professorAtualizado.getRg());
-        professorBanco.setDataNascimento(professorAtualizado.getDataNascimento());
-
-        atualizarOuCriarEndereco(professorBanco, professorAtualizado);
-
-        return professorBanco;
-    }
-
-    private void atualizarOuCriarEndereco(Professor professorBanco, Professor professorAtualizado) {
-        Endereco enderecoAtualizado = professorAtualizado.getEndereco();
-        if (enderecoAtualizado == null) {
-            throw new IllegalArgumentException("Endereço atualizado é obrigatório.");
-        }
-
-        Endereco enderecoBanco = professorBanco.getEndereco();
-
-        if (enderecoBanco == null) {
-            enderecoBanco = new Endereco();
-            professorBanco.setEndereco(enderecoBanco);
-        }
-
-        enderecoBanco.setRua(tratarTexto(enderecoAtualizado.getRua()));
-        enderecoBanco.setNumero(tratarTexto(enderecoAtualizado.getNumero()));
-        enderecoBanco.setComplemento(tratarTexto(enderecoAtualizado.getComplemento()));
-        enderecoBanco.setBairro(tratarTexto(enderecoAtualizado.getBairro()));
-        enderecoBanco.setCidade(tratarTexto(enderecoAtualizado.getCidade()));
-        enderecoBanco.setEstado(enderecoAtualizado.getEstado());
-        enderecoBanco.setCep(normalizarCep(enderecoAtualizado.getCep()));
-    }
-
-    private String tratarTexto(String valor) {
-        return valor == null ? null : valor.trim();
-    }
-
-    private String normalizarCpf(String cpf) {
-        String valor = tratarTexto(cpf);
-        return valor == null ? null : valor.replaceAll("\\D", "");
-    }
-
-    private String normalizarTelefone(String telefone) {
-        String valor = tratarTexto(telefone);
-        return valor == null ? null : valor.replaceAll("\\D", "");
-    }
-
-    private String normalizarCep(String cep) {
-        String valor = tratarTexto(cep);
-        return valor == null ? null : valor.replaceAll("\\D", "");
-    }
-
-    public void salvarProfessor(Professor professor) {
-        validarProfessorNaoNulo(professor);
-        normalizarProfessor(professor);
-        validarParaCadastro(professor);
-
-        executarEmTransacao(conn -> {
-            ProfessorDAO professorDAO = new ProfessorDAO(conn);
-
-            if (professorDAO.existeCpf(professor.getCpf())) {
-                throw new IllegalArgumentException("Já existe professor cadastrado com este CPF.");
-            }
-
-            if (professor.getRg() != null && !professor.getRg().isBlank()
-                    && professorDAO.existeRg(professor.getRg())) {
-                throw new IllegalArgumentException("Já existe professor cadastrado com este RG.");
-            }
-
-            professorDAO.inserir(professor);
-            return null;
-        }, "Erro ao salvar professor.");
-    }
-
-    public void atualizarProfessor(Professor professorAtualizado) {
-        validarProfessorNaoNulo(professorAtualizado);
-
-        if (professorAtualizado.getIdProfessor() <= 0) {
-            throw new IllegalArgumentException("ID do professor inválido.");
-        }
-
-        normalizarProfessor(professorAtualizado);
-
-        executarEmTransacao(conn -> {
-            ProfessorDAO professorDAO = new ProfessorDAO(conn);
-
-            Professor professorBanco = professorDAO.buscarPorId(professorAtualizado.getIdProfessor());
-            if (professorBanco == null) {
-                throw new IllegalArgumentException("Professor não encontrado.");
-            }
-
-            validarParaAtualizacao(professorAtualizado, professorBanco);
-
-            if (professorAtualizado.getRg() != null && !professorAtualizado.getRg().isBlank()) {
-                Professor professorComMesmoRg = professorDAO.buscarPorRg(professorAtualizado.getRg());
-                if (professorComMesmoRg != null
-                        && professorComMesmoRg.getIdProfessor() != professorAtualizado.getIdProfessor()) {
-                    throw new IllegalArgumentException("Já existe outro professor cadastrado com este RG.");
-                }
-            }
-
-            Professor professorParaSalvar = mesclarDadosPermitidos(professorBanco, professorAtualizado);
-            professorDAO.atualizar(professorParaSalvar);
-            return null;
-        }, "Erro ao atualizar professor.");
-    }
-
-    public boolean excluirProfessor(int idProfessor) {
-        if (idProfessor <= 0) {
-            throw new IllegalArgumentException("ID do professor inválido.");
-        }
-
-        return executarEmTransacao(conn -> {
-            ProfessorDAO professorDAO = new ProfessorDAO(conn);
-
-            Professor professorExistente = professorDAO.buscarPorId(idProfessor);
-            if (professorExistente == null) {
-                throw new IllegalArgumentException("Professor não encontrado.");
-            }
-
-            return professorDAO.excluir(idProfessor);
-        }, "Erro ao excluir professor.");
-    }
-
-    public Professor buscarProfessorPorId(int idProfessor) {
-        if (idProfessor <= 0) {
-            throw new IllegalArgumentException("ID do professor inválido.");
-        }
-
-        try (Connection conn = ConnectionFactory.getConnection()) {
-            ProfessorDAO professorDAO = new ProfessorDAO(conn);
-            return professorDAO.buscarPorId(idProfessor);
-        } catch (SQLException e) {
-            throw new RuntimeException("Erro ao buscar professor por ID.", e);
-        }
-    }
-
-    public Professor buscarProfessorPorCpf(String cpf) {
-        String cpfTratado = normalizarCpf(cpf);
-
-        if (cpfTratado == null || cpfTratado.isEmpty()) {
-            throw new IllegalArgumentException("CPF é obrigatório para busca.");
-        }
-
-        if (!ValidaCPF.isValido(cpfTratado)) {
-            throw new IllegalArgumentException("CPF inválido.");
-        }
-
-        try (Connection conn = ConnectionFactory.getConnection()) {
-            ProfessorDAO professorDAO = new ProfessorDAO(conn);
-            return professorDAO.buscarPorCpf(cpfTratado);
-        } catch (SQLException e) {
-            throw new RuntimeException("Erro ao buscar professor por CPF.", e);
-        }
-    }
-
-    public List<Professor> buscarProfessorPorNome(String nome) {
-        String nomeTratado = tratarTexto(nome);
-
-        if (nomeTratado == null || nomeTratado.isEmpty()) {
-            throw new IllegalArgumentException("Nome é obrigatório para busca.");
-        }
-
-        try (Connection conn = ConnectionFactory.getConnection()) {
-            ProfessorDAO professorDAO = new ProfessorDAO(conn);
-            return professorDAO.buscarPorNome(nomeTratado);
-        } catch (SQLException e) {
-            throw new RuntimeException("Erro ao buscar professor por nome.", e);
-        }
-    }
-
-    public List<Professor> listarProfessores() {
-        try (Connection conn = ConnectionFactory.getConnection()) {
-            ProfessorDAO professorDAO = new ProfessorDAO(conn);
-            return professorDAO.listar();
-        } catch (SQLException e) {
-            throw new RuntimeException("Erro ao listar professores.", e);
-        }
-    }
+    // Lista todos os professores, ativos e inativos.
+    public List<Professor> listarProfessores() { return listarTodosProfessores(); }
+    // Lista todos os professores, ativos e inativos.
+    public List<Professor> listarTodosProfessores() { try (Connection conn = ConnectionFactory.getConnection()) { return new ProfessorDAO(conn).listarTodos(); } catch (SQLException e) { throw new RuntimeException("Erro ao listar professores.", e); } }
+    // Lista somente professores ativos.
+    public List<Professor> listarProfessoresAtivos() { try (Connection conn = ConnectionFactory.getConnection()) { return new ProfessorDAO(conn).listarAtivos(); } catch (SQLException e) { throw new RuntimeException("Erro ao listar professores ativos.", e); } }
+    // Lista somente professores inativos.
+    public List<Professor> listarProfessoresInativos() { try (Connection conn = ConnectionFactory.getConnection()) { return new ProfessorDAO(conn).listarInativos(); } catch (SQLException e) { throw new RuntimeException("Erro ao listar professores inativos.", e); } }
 }

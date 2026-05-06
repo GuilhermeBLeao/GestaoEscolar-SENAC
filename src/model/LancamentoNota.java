@@ -14,7 +14,12 @@ public class LancamentoNota {
 	private List<LancamentoNotaItem> itens = new ArrayList<>();
 	
 	public int getTurmaId() {return turmaId;}
-	public void setTurmaId(int turmaId) {this.turmaId = turmaId;	}
+	public void setTurmaId(int turmaId) {
+		if(turmaId <= 0) {
+			throw new IllegalArgumentException("ID da turma é inválido.");
+		}
+		this.turmaId = turmaId;	
+		}
 	public LocalDate getDataLancamento() {return dataLancamento;}
 	public void setDataLancamento(LocalDate dataLancamento) {
 	    if (dataLancamento == null) {
@@ -25,8 +30,13 @@ public class LancamentoNota {
 	    this.dataLancamento = dataLancamento;
 	}
 	public int getDisciplinaId() {return disciplinaId;}
-	public void setDisciplinaId(int disciplinaId) {this.disciplinaId = disciplinaId;}
-	public String getAtividade() {	return atividade;}
+	public void setDisciplinaId(int disciplinaId) {
+		if(disciplinaId <= 0) {
+			throw new IllegalArgumentException("ID da disciplina é inválido.");
+		}
+		this.disciplinaId = disciplinaId;
+		}
+	public String getAtividade() {return atividade;}
 	public void setAtividade(String atividade) {
 		if(atividade == null || atividade.trim().isEmpty())
 			throw new IllegalArgumentException("Atividade é obrigatória.");

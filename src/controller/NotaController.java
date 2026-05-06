@@ -2,12 +2,15 @@
 
 package controller;
 
+import dao.AlunoDAO;
+import dao.DisciplinaDAO;
 import dao.NotaDAO;
 import database.ConnectionFactory;
 import model.Nota;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.List;
 
 public class NotaController {
@@ -89,6 +92,14 @@ public class NotaController {
         if (nota.getNota() < 0 || nota.getNota() > 10) {
             throw new IllegalArgumentException("Nota deve estar entre 0 e 10.");
         }
+
+        if (nota.getDataLancamento() == null) {
+            throw new IllegalArgumentException("Data de lançamento da nota é obrigatória.");
+        }
+
+        if (nota.getDataLancamento().isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("Data de lançamento da nota não pode ser futura.");
+        }
     }
 
     private void validarChaveImutavel(Nota notaAtualizada, Nota notaBanco) {
@@ -106,6 +117,21 @@ public class NotaController {
         return notaBanco;
     }
 
+
+    private void validarExistenciasRelacionamentos(
+            AlunoDAO alunoDAO,
+            DisciplinaDAO disciplinaDAO,
+            Nota nota
+    ) throws SQLException {
+        if (alunoDAO.buscarPorId(nota.getIdAluno()) == null) {
+            throw new IllegalArgumentException("Aluno informado não existe.");
+        }
+
+        if (disciplinaDAO.buscarPorId(nota.getIdDisciplina()) == null) {
+            throw new IllegalArgumentException("Disciplina informada não existe.");
+        }
+    }
+
     private String tratarTexto(String valor) {
         return valor == null ? null : valor.trim();
     }
@@ -117,6 +143,7 @@ public class NotaController {
 
         executarEmTransacao(conn -> {
             NotaDAO notaDAO = new NotaDAO(conn);
+            validarExistenciasRelacionamentos(new AlunoDAO(conn), new DisciplinaDAO(conn), nota);
             notaDAO.inserir(nota);
             return null;
         }, "Erro ao salvar nota.");
@@ -140,6 +167,7 @@ public class NotaController {
             }
 
             validarParaAtualizacao(notaAtualizada, notaBanco);
+            validarExistenciasRelacionamentos(new AlunoDAO(conn), new DisciplinaDAO(conn), notaAtualizada);
 
             Nota notaParaSalvar = mesclarDadosPermitidos(notaBanco, notaAtualizada);
             notaDAO.atualizar(notaParaSalvar);

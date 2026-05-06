@@ -2,6 +2,8 @@
 
 package model;
 
+import util.ValidaCEP;
+import util.ValidaCidade;
 import variaveisEnum.Estado;
 
 public class Endereco {
@@ -10,7 +12,12 @@ public class Endereco {
     private Estado estado;
 
     public int getIdEndereco() {return idEndereco;}
-    public void setIdEndereco(int idEndereco) {this.idEndereco = idEndereco;}
+    public void setIdEndereco(int idEndereco) {
+    	if(idEndereco <= 0) {
+    		throw new IllegalArgumentException("ID do endereço é inválido.");
+    	}
+    	this.idEndereco = idEndereco;
+    	}
     public String getRua() {return rua;}
     public void setRua(String rua) {
         if (rua == null || rua.trim().isEmpty())
@@ -29,7 +36,7 @@ public class Endereco {
     }
     public String getCidade() {return cidade;}
     public void setCidade(String cidade) {
-        if (cidade == null || cidade.trim().isEmpty())
+        if (!ValidaCidade.isValido(cidade))
             throw new IllegalArgumentException("Campo cidade é obrigatório.");
         this.cidade = cidade;
     }
@@ -41,7 +48,7 @@ public class Endereco {
 		}
 	public String getCep() {return cep;}
     public void setCep(String cep) {
-        if (cep == null || cep.trim().isEmpty())
+        if (!ValidaCEP.isValido(cep))
             throw new IllegalArgumentException("Campo cep é obrigatório.");
         this.cep = cep;
     }

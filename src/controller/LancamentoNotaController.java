@@ -3,7 +3,9 @@
 package controller;
 
 import dao.AlunoDAO;
+import dao.DisciplinaDAO;
 import dao.NotaDAO;
+import dao.TurmaDAO;
 import database.ConnectionFactory;
 import model.Aluno;
 import model.Nota;
@@ -32,6 +34,12 @@ public class LancamentoNotaController {
         }
 
         try (Connection conn = ConnectionFactory.getConnection()) {
+            validarExistenciasRelacionamentos(
+                    new TurmaDAO(conn),
+                    new DisciplinaDAO(conn),
+                    turmaId,
+                    disciplinaId
+            );
             AlunoDAO alunoBanco = new AlunoDAO(conn);
             List<Aluno> alunos = alunoBanco.listarPorTurma(turmaId);
 
@@ -68,8 +76,18 @@ public class LancamentoNotaController {
 
             try {
                 NotaDAO notaDAO = new NotaDAO(conn);
+                AlunoDAO alunoDAO = new AlunoDAO(conn);
+
+                validarExistenciasRelacionamentos(
+                        new TurmaDAO(conn),
+                        new DisciplinaDAO(conn),
+                        lancamento.getTurmaId(),
+                        lancamento.getDisciplinaId()
+                );
 
                 for (LancamentoNotaItem item : lancamento.getItens()) {
+                    validarExistenciaAluno(alunoDAO, item.getAlunoId());
+
                     Nota existente = notaDAO.buscarPorAlunoDisciplinaAtividade(
                             item.getAlunoId(),
                             lancamento.getDisciplinaId(),
@@ -102,6 +120,27 @@ public class LancamentoNotaController {
 
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao salvar lançamento de nota.", e);
+        }
+    }
+
+    private void validarExistenciasRelacionamentos(
+            TurmaDAO turmaDAO,
+            DisciplinaDAO disciplinaDAO,
+            int turmaId,
+            int disciplinaId
+    ) throws SQLException {
+        if (turmaDAO.buscarPorId(turmaId) == null) {
+            throw new IllegalArgumentException("Turma informada não existe.");
+        }
+
+        if (disciplinaDAO.buscarPorId(disciplinaId) == null) {
+            throw new IllegalArgumentException("Disciplina informada não existe.");
+        }
+    }
+
+    private void validarExistenciaAluno(AlunoDAO alunoDAO, int alunoId) throws SQLException {
+        if (alunoDAO.buscarPorId(alunoId) == null) {
+            throw new IllegalArgumentException("Aluno informado no lançamento de nota não existe.");
         }
     }
 

@@ -1,4 +1,5 @@
-//Arthur
+/*Arthur
+ Guilherme adicionou a exclusão lógica*/
 
 package controller;
 
@@ -35,24 +36,21 @@ public class FuncionarioController {
                 T resultado = acao.executar(conn);
                 conn.commit();
                 return resultado;
-
             } catch (IllegalArgumentException e) {
                 try {
                     conn.rollback();
-                } catch (SQLException rollbackEx) {
-                    e.addSuppressed(rollbackEx);
+                } catch (SQLException ex) {
+                    e.addSuppressed(ex);
                 }
                 throw e;
-
             } catch (SQLException | RuntimeException e) {
                 try {
                     conn.rollback();
-                } catch (SQLException rollbackEx) {
-                    e.addSuppressed(rollbackEx);
+                } catch (SQLException ex) {
+                    e.addSuppressed(ex);
                 }
                 throw new RuntimeException(mensagemOperacao, e);
             }
-
         } catch (IllegalArgumentException e) {
             throw e;
         } catch (Exception e) {
@@ -60,15 +58,44 @@ public class FuncionarioController {
         }
     }
 
-    private void validarFuncionarioNaoNulo(Funcionario funcionario) {
+    private void validarNaoNulo(Funcionario funcionario) {
         if (funcionario == null) {
             throw new IllegalArgumentException("Funcionário não pode ser nulo.");
         }
     }
 
-    private void normalizarFuncionario(Funcionario funcionario) {
+    private String tratarTexto(String valor) {
+        return valor == null ? null : valor.trim();
+    }
+
+    private String normalizarCpf(String valor) {
+        String texto = tratarTexto(valor);
+        return texto == null ? null : texto.replaceAll("\\D", "");
+    }
+
+    private String normalizarTelefone(String valor) {
+        String texto = tratarTexto(valor);
+        return texto == null ? null : texto.replaceAll("\\D", "");
+    }
+
+    private String normalizarCep(String valor) {
+        String texto = tratarTexto(valor);
+        return texto == null ? null : texto.replaceAll("\\D", "");
+    }
+
+    private String normalizarEmail(String valor) {
+        String texto = tratarTexto(valor);
+        return texto == null ? null : texto.toLowerCase();
+    }
+
+    /**
+     * Normaliza dados editáveis.
+     *
+     * Observação importante: o CPF NÃO é setado novamente aqui,
+     * pois Funcionario.setCpf() foi criado como imutável após definido.
+     */
+    private void normalizarDadosEditaveis(Funcionario funcionario) {
         funcionario.setNome(tratarTexto(funcionario.getNome()));
-        funcionario.setCpf(normalizarCpf(funcionario.getCpf()));
         funcionario.setCargo(tratarTexto(funcionario.getCargo()));
         funcionario.setTelefone(normalizarTelefone(funcionario.getTelefone()));
         funcionario.setRg(tratarTexto(funcionario.getRg()));
@@ -86,20 +113,32 @@ public class FuncionarioController {
         }
     }
 
-    private void validarParaCadastro(Funcionario funcionario) {
-        validarCamposBase(funcionario);
-    }
+    private void validarEndereco(Endereco endereco) {
+        if (endereco == null) {
+            throw new IllegalArgumentException("Endereço é obrigatório.");
+        }
 
-    private void validarParaAtualizacao(Funcionario funcionarioAtualizado, Funcionario funcionarioBanco) {
-        validarCamposBase(funcionarioAtualizado);
-        validarCpfImutavel(funcionarioAtualizado, funcionarioBanco);
+        ValidaCidade.validar(endereco.getCidade());
+
+        if (endereco.getEstado() == null) {
+            throw new IllegalArgumentException("Estado é obrigatório.");
+        }
+
+        if (!ValidaCEP.isValido(endereco.getCep())) {
+            throw new IllegalArgumentException("CEP inválido.");
+        }
     }
 
     private void validarCamposBase(Funcionario funcionario) {
         ValidaNome.validar(funcionario.getNome());
 
-        if (!ValidaCPF.isValido(funcionario.getCpf())) {
+        String cpfNormalizado = normalizarCpf(funcionario.getCpf());
+        if (cpfNormalizado == null || !ValidaCPF.isValido(cpfNormalizado)) {
             throw new IllegalArgumentException("CPF do funcionário inválido.");
+        }
+
+        if (funcionario.getCargo() == null || funcionario.getCargo().isBlank()) {
+            throw new IllegalArgumentException("Cargo do funcionário é obrigatório.");
         }
 
         if (!ValidaTelefone.isValido(funcionario.getTelefone())) {
@@ -110,20 +149,20 @@ public class FuncionarioController {
             throw new IllegalArgumentException("Email do funcionário inválido.");
         }
 
-        if (funcionario.getDataNascimento() == null) {
-            throw new IllegalArgumentException("Data de nascimento do funcionário é obrigatória.");
+        if (funcionario.getSexo() == null) {
+            throw new IllegalArgumentException("Sexo do funcionário é obrigatório.");
         }
 
-        if (funcionario.getDataNascimento().isAfter(LocalDate.now())) {
-            throw new IllegalArgumentException("Data de nascimento do funcionário não pode ser futura.");
+        if (funcionario.getPerfil() == null) {
+            throw new IllegalArgumentException("Perfil do funcionário é obrigatório.");
         }
 
-        if (funcionario.getDataContratacao() == null) {
-            throw new IllegalArgumentException("Data de contratação do funcionário é obrigatória.");
+        if (funcionario.getDataNascimento() == null || funcionario.getDataNascimento().isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("Data de nascimento do funcionário inválida.");
         }
 
-        if (funcionario.getDataContratacao().isAfter(LocalDate.now())) {
-            throw new IllegalArgumentException("Data de contratação do funcionário não pode ser futura.");
+        if (funcionario.getDataContratacao() == null || funcionario.getDataContratacao().isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("Data de contratação do funcionário inválida.");
         }
 
         if (funcionario.getDataContratacao().isBefore(funcionario.getDataNascimento())) {
@@ -163,16 +202,15 @@ public class FuncionarioController {
 
         ValidaCidade.validar(endereco.getCidade());
 
-        if (!ValidaCEP.isValido(endereco.getCep())) {
-            throw new IllegalArgumentException("CEP inválido.");
+        if (!cpfBanco.equals(cpfAtualizado)) {
+            throw new IllegalArgumentException("CPF do funcionário não pode ser alterado após o cadastro.");
         }
     }
 
-    private Funcionario mesclarDadosPermitidos(Funcionario funcionarioBanco, Funcionario funcionarioAtualizado) {
+    private Funcionario mesclar(Funcionario funcionarioBanco, Funcionario funcionarioAtualizado) {
         funcionarioBanco.setNome(funcionarioAtualizado.getNome());
         funcionarioBanco.setCargo(funcionarioAtualizado.getCargo());
         funcionarioBanco.setTelefone(funcionarioAtualizado.getTelefone());
-        funcionarioBanco.setAtivo(funcionarioAtualizado.isAtivo());
         funcionarioBanco.setRg(funcionarioAtualizado.getRg());
         funcionarioBanco.setSexo(funcionarioAtualizado.getSexo());
         funcionarioBanco.setSetor(funcionarioAtualizado.getSetor());
@@ -186,65 +224,25 @@ public class FuncionarioController {
         return funcionarioBanco;
     }
 
-    private void atualizarOuCriarEndereco(Funcionario funcionarioBanco, Funcionario funcionarioAtualizado) {
-        Endereco enderecoAtualizado = funcionarioAtualizado.getEndereco();
-        if (enderecoAtualizado == null) {
-            throw new IllegalArgumentException("Endereço atualizado é obrigatório.");
+    private void informarSeInativo(Funcionario funcionario) {
+        if (funcionario != null && !funcionario.isAtivo()) {
+            System.out.println("ATENÇÃO: funcionário encontrado, porém está inativo.");
         }
-
-        Endereco enderecoBanco = funcionarioBanco.getEndereco();
-
-        if (enderecoBanco == null) {
-            enderecoBanco = new Endereco();
-            funcionarioBanco.setEndereco(enderecoBanco);
-        }
-
-        enderecoBanco.setRua(tratarTexto(enderecoAtualizado.getRua()));
-        enderecoBanco.setNumero(tratarTexto(enderecoAtualizado.getNumero()));
-        enderecoBanco.setComplemento(tratarTexto(enderecoAtualizado.getComplemento()));
-        enderecoBanco.setBairro(tratarTexto(enderecoAtualizado.getBairro()));
-        enderecoBanco.setCidade(tratarTexto(enderecoAtualizado.getCidade()));
-        enderecoBanco.setEstado(enderecoAtualizado.getEstado());
-        enderecoBanco.setCep(normalizarCep(enderecoAtualizado.getCep()));
-    }
-
-    private String tratarTexto(String valor) {
-        return valor == null ? null : valor.trim();
-    }
-
-    private String normalizarEmail(String email) {
-        String valor = tratarTexto(email);
-        return valor == null ? null : valor.toLowerCase();
-    }
-
-    private String normalizarCpf(String cpf) {
-        String valor = tratarTexto(cpf);
-        return valor == null ? null : valor.replaceAll("\\D", "");
-    }
-
-    private String normalizarTelefone(String telefone) {
-        String valor = tratarTexto(telefone);
-        return valor == null ? null : valor.replaceAll("\\D", "");
-    }
-
-    private String normalizarCep(String cep) {
-        String valor = tratarTexto(cep);
-        return valor == null ? null : valor.replaceAll("\\D", "");
     }
 
     public void salvarFuncionario(Funcionario funcionario) {
-        validarFuncionarioNaoNulo(funcionario);
-        normalizarFuncionario(funcionario);
-        validarParaCadastro(funcionario);
+        validarNaoNulo(funcionario);
+        normalizarDadosEditaveis(funcionario);
+        validarCamposBase(funcionario);
 
         executarEmTransacao(conn -> {
-            FuncionarioDAO funcionarioDAO = new FuncionarioDAO(conn);
+            FuncionarioDAO dao = new FuncionarioDAO(conn);
 
-            if (funcionarioDAO.existeCpf(funcionario.getCpf())) {
+            if (dao.existeCpf(funcionario.getCpf())) {
                 throw new IllegalArgumentException("Já existe funcionário cadastrado com este CPF.");
             }
 
-            funcionarioDAO.inserir(funcionario);
+            dao.inserir(funcionario);
             return null;
         }, "Erro ao salvar funcionário.");
     }
@@ -256,17 +254,20 @@ public class FuncionarioController {
             throw new IllegalArgumentException("ID do funcionário inválido.");
         }
 
-        normalizarFuncionario(funcionarioAtualizado);
+        normalizarDadosEditaveis(funcionarioAtualizado);
+        validarCamposBase(funcionarioAtualizado);
 
         executarEmTransacao(conn -> {
-            FuncionarioDAO funcionarioDAO = new FuncionarioDAO(conn);
+            FuncionarioDAO dao = new FuncionarioDAO(conn);
+            Funcionario funcionarioBanco = dao.buscarPorId(funcionarioAtualizado.getIdFuncionario());
 
-            Funcionario funcionarioBanco = funcionarioDAO.buscarPorId(funcionarioAtualizado.getIdFuncionario());
             if (funcionarioBanco == null) {
                 throw new IllegalArgumentException("Funcionário não encontrado.");
             }
 
-            validarParaAtualizacao(funcionarioAtualizado, funcionarioBanco);
+            if (!funcionarioBanco.isAtivo()) {
+                throw new IllegalArgumentException("Não é possível atualizar funcionário inativo.");
+            }
 
             validarAlteracaoPerfil(funcionarioAtualizado, funcionarioBanco, perfilUsuarioLogado);
 
@@ -282,15 +283,22 @@ public class FuncionarioController {
         }
 
         return executarEmTransacao(conn -> {
-            FuncionarioDAO funcionarioDAO = new FuncionarioDAO(conn);
+            FuncionarioDAO dao = new FuncionarioDAO(conn);
 
-            Funcionario funcionarioExistente = funcionarioDAO.buscarPorId(idFuncionario);
-            if (funcionarioExistente == null) {
+            if (dao.buscarPorId(idFuncionario) == null) {
                 throw new IllegalArgumentException("Funcionário não encontrado.");
             }
 
-            return funcionarioDAO.excluir(idFuncionario);
+            return dao.inativar(idFuncionario);
         }, "Erro ao excluir funcionário.");
+    }
+
+    public boolean reativarFuncionario(int idFuncionario) {
+        if (idFuncionario <= 0) {
+            throw new IllegalArgumentException("ID do funcionário inválido.");
+        }
+
+        return executarEmTransacao(conn -> new FuncionarioDAO(conn).reativar(idFuncionario), "Erro ao reativar funcionário.");
     }
 
     public Funcionario buscarFuncionarioPorId(int idFuncionario) {
@@ -299,53 +307,86 @@ public class FuncionarioController {
         }
 
         try (Connection conn = ConnectionFactory.getConnection()) {
-            FuncionarioDAO funcionarioDAO = new FuncionarioDAO(conn);
-            return funcionarioDAO.buscarPorId(idFuncionario);
+            Funcionario funcionario = new FuncionarioDAO(conn).buscarPorId(idFuncionario);
+
+            if (funcionario == null) {
+                throw new IllegalArgumentException("Funcionário não encontrado.");
+            }
+
+            informarSeInativo(funcionario);
+            return funcionario;
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao buscar funcionário por ID.", e);
         }
     }
 
     public Funcionario buscarFuncionarioPorCpf(String cpf) {
-        String cpfTratado = normalizarCpf(cpf);
+        String cpfNormalizado = normalizarCpf(cpf);
 
-        if (cpfTratado == null || cpfTratado.isBlank()) {
-            throw new IllegalArgumentException("CPF é obrigatório para busca.");
-        }
-
-        if (!ValidaCPF.isValido(cpfTratado)) {
-            throw new IllegalArgumentException("CPF inválido.");
+        if (cpfNormalizado == null || !ValidaCPF.isValido(cpfNormalizado)) {
+            throw new IllegalArgumentException("CPF do funcionário inválido.");
         }
 
         try (Connection conn = ConnectionFactory.getConnection()) {
-            FuncionarioDAO funcionarioDAO = new FuncionarioDAO(conn);
-            return funcionarioDAO.buscarPorCpf(cpfTratado);
+            Funcionario funcionario = new FuncionarioDAO(conn).buscarPorCpf(cpfNormalizado);
+
+            if (funcionario == null) {
+                throw new IllegalArgumentException("Funcionário não encontrado.");
+            }
+
+            informarSeInativo(funcionario);
+            return funcionario;
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao buscar funcionário por CPF.", e);
         }
     }
 
-    public List<Funcionario> buscarFuncionarioPorNome(String nome) {
+    public Funcionario buscarFuncionarioPorNome(String nome) {
         String nomeTratado = tratarTexto(nome);
 
         if (nomeTratado == null || nomeTratado.isBlank()) {
-            throw new IllegalArgumentException("Nome é obrigatório para busca.");
+            throw new IllegalArgumentException("Nome do funcionário é obrigatório.");
         }
 
         try (Connection conn = ConnectionFactory.getConnection()) {
-            FuncionarioDAO funcionarioDAO = new FuncionarioDAO(conn);
-            return funcionarioDAO.buscarPorNome(nomeTratado);
+            Funcionario funcionario = new FuncionarioDAO(conn).buscarPorNome(nomeTratado);
+
+            if (funcionario == null) {
+                throw new IllegalArgumentException("Funcionário não encontrado.");
+            }
+
+            informarSeInativo(funcionario);
+            return funcionario;
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao buscar funcionário por nome.", e);
         }
     }
 
     public List<Funcionario> listarFuncionarios() {
+        return listarTodosFuncionarios();
+    }
+
+    public List<Funcionario> listarTodosFuncionarios() {
         try (Connection conn = ConnectionFactory.getConnection()) {
-            FuncionarioDAO funcionarioDAO = new FuncionarioDAO(conn);
-            return funcionarioDAO.listar();
+            return new FuncionarioDAO(conn).listarTodos();
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao listar funcionários.", e);
+        }
+    }
+
+    public List<Funcionario> listarFuncionariosAtivos() {
+        try (Connection conn = ConnectionFactory.getConnection()) {
+            return new FuncionarioDAO(conn).listarAtivos();
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao listar funcionários ativos.", e);
+        }
+    }
+
+    public List<Funcionario> listarFuncionariosInativos() {
+        try (Connection conn = ConnectionFactory.getConnection()) {
+            return new FuncionarioDAO(conn).listarInativos();
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao listar funcionários inativos.", e);
         }
     }
 }

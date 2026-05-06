@@ -7,5 +7,9 @@ public enum SituacaoAluno {
     INATIVO,
     TRANCADO,
     TRANSFERIDO,
-    CONCLUIDO
+    CONCLUIDO;
+    
+    public boolean isAtivo() {
+        return this == ATIVO;
+    }
 }

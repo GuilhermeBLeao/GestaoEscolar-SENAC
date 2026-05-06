@@ -25,7 +25,12 @@ public class Disciplina{
 			throw new IllegalArgumentException("Campo código é obrigatório. ");
 		this.codigo = codigo;}
 	public int getIdDisciplina() {return idDisciplina;}
-	public void setIdDisciplina(int idDisciplina) {this.idDisciplina = idDisciplina;}
+	public void setIdDisciplina(int idDisciplina) {
+		if(idDisciplina <= 0) {
+			throw new IllegalArgumentException("ID da disciplina é inválido.");
+		}
+		this.idDisciplina = idDisciplina;
+		}
 	public boolean isAtivo() {return ativo;}
 	public void setAtivo(boolean ativo) {this.ativo = ativo;}
 }

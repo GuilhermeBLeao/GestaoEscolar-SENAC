@@ -3,7 +3,10 @@
 package controller;
 
 import dao.AlunoDAO;
+import dao.DisciplinaDAO;
 import dao.PresencaDAO;
+import dao.ProfessorDAO;
+import dao.TurmaDAO;
 import database.ConnectionFactory;
 import model.Aluno;
 import model.Chamada;
@@ -29,6 +32,14 @@ public class ChamadaController{
 		}
 		
 		try(Connection conn = ConnectionFactory.getConnection()){
+            validarExistenciasRelacionamentos(
+                    new ProfessorDAO(conn),
+                    new TurmaDAO(conn),
+                    new DisciplinaDAO(conn),
+                    professorId,
+                    turmaId,
+                    disciplinaId
+            );
 			//Cria o DAO
 			AlunoDAO alunoBanco = new AlunoDAO(conn);
 			//Busca todos os alunos daquela turma
@@ -75,36 +86,23 @@ public class ChamadaController{
 
             try {
                 PresencaDAO presencaDAO = new PresencaDAO(conn);
+                validarExistenciasRelacionamentos(
+                        new ProfessorDAO(conn),
+                        new TurmaDAO(conn),
+                        new DisciplinaDAO(conn),
+                        chamada.getProfessorId(),
+                        chamada.getTurmaId(),
+                        chamada.getDisciplinaId()
+                );
                 
-                //Loop dos alunos
+                //Loop dos alunos                
                 for (ChamadaItem item : chamada.getItens()) {
-                    //Verifica duplicidade e evita duas chamadas no mesmo dia para o mesmo aluno/disciplin
-                	Presenca existente = presencaDAO.buscarPorAlunoDisciplinaData(
-                            item.getAlunoId(),
-                            chamada.getDisciplinaId(),
-                            chamada.getData()
-                    );
-                	
-                	//Se já existir lança exceção
-                    if (existente != null) {
-                        throw new IllegalArgumentException("Já existe chamada para esta disciplina, "
-                        		+ "data e um dos alunos selecionados.");
-                    }
+                	Presenca existente = presencaDAO.buscarPorAlunoDisciplinaData(item.getAlunoId(), chamada.getDisciplinaId(), chamada.getData());
 
-                    //Cria presença
-                    Presenca presenca = new Presenca();
-                    //Converte ChamadaItem em Presenca(BD)
-                    presenca.setAlunoId(item.getAlunoId());
-                    presenca.setDisciplinaId(chamada.getDisciplinaId());
-                    presenca.setData(chamada.getData());
-                    presenca.setPresente(item.isPresente());
-                    presenca.setFaltaAbonada(false);
-                    presenca.setFaltaJustificada(false);
-                    presenca.setMotivoAbonada(null);
-
-                    //Salva
-                    presencaDAO.inserir(presenca);
-                }
+                	if (existente != null) {
+                	    throw new IllegalArgumentException("Já existe chamada para o aluno ID: " + item.getAlunoId());
+                	}
+                	}
 
                 //Confirma tudo e realiza o commit
                 conn.commit();
@@ -117,6 +115,27 @@ public class ChamadaController{
 
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao salvar chamada.", e);
+        }
+    }
+
+    private void validarExistenciasRelacionamentos(
+            ProfessorDAO professorDAO,
+            TurmaDAO turmaDAO,
+            DisciplinaDAO disciplinaDAO,
+            int professorId,
+            int turmaId,
+            int disciplinaId
+    ) throws SQLException {
+        if (professorDAO.buscarPorId(professorId) == null) {
+            throw new IllegalArgumentException("Professor informado não existe.");
+        }
+
+        if (turmaDAO.buscarPorId(turmaId) == null) {
+            throw new IllegalArgumentException("Turma informada não existe.");
+        }
+
+        if (disciplinaDAO.buscarPorId(disciplinaId) == null) {
+            throw new IllegalArgumentException("Disciplina informada não existe.");
         }
     }
 
