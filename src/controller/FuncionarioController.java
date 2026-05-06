@@ -19,6 +19,8 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
 
+import variaveisEnum.Perfil;
+
 public class FuncionarioController {
 
     @FunctionalInterface
@@ -167,12 +169,38 @@ public class FuncionarioController {
             throw new IllegalArgumentException("Data de contratação não pode ser anterior à data de nascimento.");
         }
 
+        if (funcionario.getPerfil() == null) {
+           throw new IllegalArgumentException("Perfil do funcionário é obrigatório.");
+        }
+
+        if (funcionario.getSexo() == null) {
+           throw new IllegalArgumentException("Sexo do funcionário é obrigatório.");
+        }
+
         validarEndereco(funcionario.getEndereco());
     }
 
     private void validarCpfImutavel(Funcionario funcionarioAtualizado, Funcionario funcionarioBanco) {
-        String cpfAtualizado = normalizarCpf(funcionarioAtualizado.getCpf());
-        String cpfBanco = normalizarCpf(funcionarioBanco.getCpf());
+        if (!funcionarioBanco.getCpf().equals(funcionarioAtualizado.getCpf())) {
+            throw new IllegalArgumentException("CPF do funcionário não pode ser alterado após o cadastro.");
+        }
+    }
+
+    private void validarAlteracaoPerfil(Funcionario atualizado, Funcionario banco, Perfil perfilLogado) {
+
+    if (banco.getPerfil() != atualizado.getPerfil())
+
+        if (perfilLogado != Perfil.SECRETARIA) {
+            throw new IllegalArgumentException("Apenas secretaria pode alterar o perfil.");
+        }
+    }
+
+    private void validarEndereco(Endereco endereco) {
+        if (endereco == null) {
+            throw new IllegalArgumentException("Endereço é obrigatório.");
+        }
+
+        ValidaCidade.validar(endereco.getCidade());
 
         if (!cpfBanco.equals(cpfAtualizado)) {
             throw new IllegalArgumentException("CPF do funcionário não pode ser alterado após o cadastro.");
@@ -189,8 +217,10 @@ public class FuncionarioController {
         funcionarioBanco.setEmail(funcionarioAtualizado.getEmail());
         funcionarioBanco.setDataNascimento(funcionarioAtualizado.getDataNascimento());
         funcionarioBanco.setDataContratacao(funcionarioAtualizado.getDataContratacao());
-        funcionarioBanco.setEndereco(funcionarioAtualizado.getEndereco());
         funcionarioBanco.setPerfil(funcionarioAtualizado.getPerfil());
+
+        atualizarOuCriarEndereco(funcionarioBanco, funcionarioAtualizado);
+
         return funcionarioBanco;
     }
 
@@ -217,8 +247,8 @@ public class FuncionarioController {
         }, "Erro ao salvar funcionário.");
     }
 
-    public void atualizarFuncionario(Funcionario funcionarioAtualizado) {
-        validarNaoNulo(funcionarioAtualizado);
+     public void atualizarFuncionario(Funcionario funcionarioAtualizado, Perfil perfilUsuarioLogado) {
+        validarFuncionarioNaoNulo(funcionarioAtualizado);
 
         if (funcionarioAtualizado.getIdFuncionario() <= 0) {
             throw new IllegalArgumentException("ID do funcionário inválido.");
@@ -239,8 +269,10 @@ public class FuncionarioController {
                 throw new IllegalArgumentException("Não é possível atualizar funcionário inativo.");
             }
 
-            validarCpfImutavel(funcionarioAtualizado, funcionarioBanco);
-            dao.atualizar(mesclar(funcionarioBanco, funcionarioAtualizado));
+            validarAlteracaoPerfil(funcionarioAtualizado, funcionarioBanco, perfilUsuarioLogado);
+
+            Funcionario funcionarioParaSalvar = mesclarDadosPermitidos(funcionarioBanco, funcionarioAtualizado);
+            funcionarioDAO.atualizar(funcionarioParaSalvar);
             return null;
         }, "Erro ao atualizar funcionário.");
     }
