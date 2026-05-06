@@ -18,6 +18,8 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
 
+import variaveisEnum.Perfil;
+
 public class FuncionarioController {
 
     @FunctionalInterface
@@ -128,12 +130,29 @@ public class FuncionarioController {
             throw new IllegalArgumentException("Data de contratação não pode ser anterior à data de nascimento.");
         }
 
+        if (funcionario.getPerfil() == null) {
+           throw new IllegalArgumentException("Perfil do funcionário é obrigatório.");
+        }
+
+        if (funcionario.getSexo() == null) {
+           throw new IllegalArgumentException("Sexo do funcionário é obrigatório.");
+        }
+
         validarEndereco(funcionario.getEndereco());
     }
 
     private void validarCpfImutavel(Funcionario funcionarioAtualizado, Funcionario funcionarioBanco) {
         if (!funcionarioBanco.getCpf().equals(funcionarioAtualizado.getCpf())) {
             throw new IllegalArgumentException("CPF do funcionário não pode ser alterado após o cadastro.");
+        }
+    }
+
+    private void validarAlteracaoPerfil(Funcionario atualizado, Funcionario banco, Perfil perfilLogado) {
+
+    if (banco.getPerfil() != atualizado.getPerfil())
+
+        if (perfilLogado != Perfil.SECRETARIA) {
+            throw new IllegalArgumentException("Apenas secretaria pode alterar o perfil.");
         }
     }
 
@@ -160,6 +179,7 @@ public class FuncionarioController {
         funcionarioBanco.setEmail(funcionarioAtualizado.getEmail());
         funcionarioBanco.setDataNascimento(funcionarioAtualizado.getDataNascimento());
         funcionarioBanco.setDataContratacao(funcionarioAtualizado.getDataContratacao());
+        funcionarioBanco.setPerfil(funcionarioAtualizado.getPerfil());
 
         atualizarOuCriarEndereco(funcionarioBanco, funcionarioAtualizado);
 
@@ -229,7 +249,7 @@ public class FuncionarioController {
         }, "Erro ao salvar funcionário.");
     }
 
-    public void atualizarFuncionario(Funcionario funcionarioAtualizado) {
+     public void atualizarFuncionario(Funcionario funcionarioAtualizado, Perfil perfilUsuarioLogado) {
         validarFuncionarioNaoNulo(funcionarioAtualizado);
 
         if (funcionarioAtualizado.getIdFuncionario() <= 0) {
@@ -247,6 +267,8 @@ public class FuncionarioController {
             }
 
             validarParaAtualizacao(funcionarioAtualizado, funcionarioBanco);
+
+            validarAlteracaoPerfil(funcionarioAtualizado, funcionarioBanco, perfilUsuarioLogado);
 
             Funcionario funcionarioParaSalvar = mesclarDadosPermitidos(funcionarioBanco, funcionarioAtualizado);
             funcionarioDAO.atualizar(funcionarioParaSalvar);
