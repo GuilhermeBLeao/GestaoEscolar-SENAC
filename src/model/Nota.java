@@ -11,11 +11,26 @@ public class Nota{
 	private LocalDate dataLancamento;
 	
 	public int getNotasId() {return notasId;}
-	public void setNotasId(int notasId) {this.notasId = notasId;}
+	public void setNotasId(int notasId) {
+		if(notasId <= 0) {
+			throw new IllegalArgumentException("ID de notas é inválido.");
+		}
+		this.notasId = notasId;
+		}
 	public int getIdDisciplina() {return idDisciplina;}
-	public void setIdDisciplina(int idDisciplina) {this.idDisciplina = idDisciplina;}
+	public void setIdDisciplina(int idDisciplina) {
+		if(idDisciplina <= 0) {
+			throw new IllegalArgumentException("ID da disciplina é inválido.");
+		}
+		this.idDisciplina = idDisciplina;
+		}
 	public int getIdAluno() {return idAluno;}
-	public void setIdAluno(int idAluno) {this.idAluno = idAluno;}
+	public void setIdAluno(int idAluno) {
+		if(idAluno <= 0) {
+			throw new IllegalArgumentException("ID do aluno é inválido.");
+		}
+		this.idAluno = idAluno;
+		}
 	public String getAtividade() {return atividade;}
 	public void setAtividade(String atividade) {
 		if(atividade == null || atividade.trim().isEmpty())
@@ -31,5 +46,12 @@ public class Nota{
 		this.nota = nota;
 		}
 	public LocalDate getDataLancamento() {return dataLancamento;}
-	public void setDataLancamento(LocalDate dataLancamento) {	this.dataLancamento = dataLancamento;}
+	public void setDataLancamento(LocalDate dataLancamento) {
+		if(dataLancamento == null) {
+			throw new IllegalArgumentException("Campo data de lançamento é obrigatório.");
+		}
+		else if(dataLancamento.isAfter(LocalDate.now())) {
+			throw new IllegalArgumentException("Data de lançamento não pode ser futura.");
+		}
+		this.dataLancamento = dataLancamento;}
 }

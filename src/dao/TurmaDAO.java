@@ -1,4 +1,5 @@
-//Igor
+/*Igor
+Guilherme - adicionou exclusão lógica (Inativar ao invés de excluir)*/
 
 package dao;
 
@@ -20,6 +21,7 @@ public class TurmaDAO {
         this.conn = conn;
     }
 
+    // Insere uma nova turma (sempre ativa)
     public void inserir(Turma turma) throws SQLException {
         validarTurmaNaoNula(turma);
 
@@ -27,8 +29,9 @@ public class TurmaDAO {
             INSERT INTO turma (
                 sala_id,
                 descricao_turma,
-                turno
-            ) VALUES (?, ?, ?)
+                turno,
+                ativo
+            ) VALUES (?, ?, ?, true)
             """;
 
         try (PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -51,6 +54,7 @@ public class TurmaDAO {
         }
     }
 
+    // Atualiza turma (apenas se estiver ativa)
     public void atualizar(Turma turma) throws SQLException {
         validarTurmaNaoNula(turma);
 
@@ -64,6 +68,7 @@ public class TurmaDAO {
                    descricao_turma = ?,
                    turno = ?
              WHERE id_turma = ?
+               AND ativo = true
             """;
 
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -74,14 +79,19 @@ public class TurmaDAO {
 
             int linhasAfetadas = stmt.executeUpdate();
             if (linhasAfetadas == 0) {
-                throw new SQLException("Falha ao atualizar turma. Nenhuma linha afetada.");
+                verificarFalhaAtualizacao(turma.getIdTurma());
             }
         }
     }
 
+    // Busca turma por ID (ativa ou inativa)
     public Turma buscarPorId(int idTurma) throws SQLException {
+        if (idTurma <= 0) {
+            throw new IllegalArgumentException("ID da turma inválido.");
+        }
+
         final String sql = """
-            SELECT id_turma, sala_id, descricao_turma, turno
+            SELECT *
             FROM turma
             WHERE id_turma = ?
             """;
@@ -90,61 +100,215 @@ public class TurmaDAO {
             stmt.setInt(1, idTurma);
 
             try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return mapearTurma(rs);
-                }
-                return null;
+                return rs.next() ? mapearTurma(rs) : null;
             }
         }
     }
 
-    public List<Turma> listar() throws SQLException {
+    // Busca turma por descrição
+    public Turma buscarPorDescricao(String descricao) throws SQLException {
+        if (descricao == null || descricao.trim().isEmpty()) {
+            throw new IllegalArgumentException("Descrição inválida.");
+        }
+
         final String sql = """
-            SELECT id_turma, sala_id, descricao_turma, turno
+            SELECT *
+            FROM turma
+            WHERE descricao_turma = ?
+            """;
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, descricao.trim());
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next() ? mapearTurma(rs) : null;
+            }
+        }
+    }
+
+    // Lista todas as turmas (ativas e inativas)
+    public List<Turma> listarTodos() throws SQLException {
+        final String sql = """
+            SELECT *
             FROM turma
             ORDER BY descricao_turma
             """;
 
-        List<Turma> turmas = new ArrayList<>();
+        List<Turma> lista = new ArrayList<>();
 
         try (PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
-                turmas.add(mapearTurma(rs));
+                lista.add(mapearTurma(rs));
             }
         }
-
-        return turmas;
+        return lista;
     }
 
-    public boolean excluir(int idTurma) throws SQLException {
-        final String sql = "DELETE FROM turma WHERE id_turma = ?";
+    // Lista apenas turmas ativas
+    public List<Turma> listarAtivas() throws SQLException {
+        final String sql = """
+            SELECT *
+            FROM turma
+            WHERE ativo = true
+            ORDER BY descricao_turma
+            """;
+
+        List<Turma> lista = new ArrayList<>();
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                lista.add(mapearTurma(rs));
+            }
+        }
+        return lista;
+    }
+
+    // Lista apenas turmas inativas
+    public List<Turma> listarInativas() throws SQLException {
+        final String sql = """
+            SELECT *
+            FROM turma
+            WHERE ativo = false
+            ORDER BY descricao_turma
+            """;
+
+        List<Turma> lista = new ArrayList<>();
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                lista.add(mapearTurma(rs));
+            }
+        }
+        return lista;
+    }
+
+    // Inativa turma (exclusão lógica)
+    public boolean inativar(int idTurma) throws SQLException {
+        if (idTurma <= 0) {
+            throw new IllegalArgumentException("ID da turma inválido.");
+        }
+
+        final String sql = """
+            UPDATE turma
+               SET ativo = false
+             WHERE id_turma = ?
+               AND ativo = true
+            """;
 
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, idTurma);
 
             int linhasAfetadas = stmt.executeUpdate();
             if (linhasAfetadas == 0) {
-                throw new SQLException("Falha ao excluir turma. Nenhuma linha afetada.");
+                verificarFalhaInativacao(idTurma);
             }
 
             return true;
         }
     }
 
+    // Reativa turma
+    public boolean reativar(int idTurma) throws SQLException {
+        if (idTurma <= 0) {
+            throw new IllegalArgumentException("ID da turma inválido.");
+        }
+
+        final String sql = """
+            UPDATE turma
+               SET ativo = true
+             WHERE id_turma = ?
+               AND ativo = false
+            """;
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, idTurma);
+
+            int linhasAfetadas = stmt.executeUpdate();
+            if (linhasAfetadas == 0) {
+                verificarFalhaReativacao(idTurma);
+            }
+
+            return true;
+        }
+    }
+
+    // Mapeia ResultSet → Turma
     private Turma mapearTurma(ResultSet rs) throws SQLException {
         Turma turma = new Turma();
         turma.setIdTurma(rs.getInt("id_turma"));
         turma.setSalaId(rs.getInt("sala_id"));
         turma.setDescricaoTurma(rs.getString("descricao_turma"));
-        turma.setTurno(Turno.valueOf(rs.getString("turno")));
+        turma.setTurno(Turno.valueOf(rs.getString("turno"))); // deve bater com enum
         return turma;
     }
 
+    // Validação de objeto nulo
     private void validarTurmaNaoNula(Turma turma) {
         if (turma == null) {
             throw new IllegalArgumentException("Turma não pode ser nula.");
+        }
+    }
+
+    // Verifica falha na atualização
+    private void verificarFalhaAtualizacao(int idTurma) throws SQLException {
+        final String sql = "SELECT ativo FROM turma WHERE id_turma = ?";
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, idTurma);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (!rs.next()) {
+                    throw new SQLException("Turma não encontrada.");
+                }
+
+                if (!rs.getBoolean("ativo")) {
+                    throw new SQLException("Turma está inativa e não pode ser atualizada.");
+                }
+            }
+        }
+    }
+
+    // Verifica falha ao inativar
+    private void verificarFalhaInativacao(int idTurma) throws SQLException {
+        final String sql = "SELECT ativo FROM turma WHERE id_turma = ?";
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, idTurma);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (!rs.next()) {
+                    throw new SQLException("Turma não encontrada.");
+                }
+
+                if (!rs.getBoolean("ativo")) {
+                    throw new SQLException("Turma já está inativa.");
+                }
+            }
+        }
+    }
+
+    // Verifica falha ao reativar
+    private void verificarFalhaReativacao(int idTurma) throws SQLException {
+        final String sql = "SELECT ativo FROM turma WHERE id_turma = ?";
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, idTurma);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (!rs.next()) {
+                    throw new SQLException("Turma não encontrada.");
+                }
+
+                if (rs.getBoolean("ativo")) {
+                    throw new SQLException("Turma já está ativa.");
+                }
+            }
         }
     }
 }

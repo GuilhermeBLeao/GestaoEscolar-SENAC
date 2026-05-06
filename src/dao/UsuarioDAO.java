@@ -3,6 +3,7 @@
 package dao;
 
 import model.Usuario;
+import util.ValidaCPF;
 import variaveisEnum.TipoUsuario;
 
 import java.sql.*;
@@ -21,16 +22,60 @@ public class UsuarioDAO {
         this.conn = conn;
     }
 
-    public boolean existeCpf(String cpf) throws SQLException {
-        final String sql = "SELECT 1 FROM usuario WHERE cpf = ?";
+    private boolean existeVinculo(String coluna, int idVinculo, int idUsuarioIgnorado) throws SQLException {
+        if (idVinculo <= 0) {
+            return false;
+        }
+
+        final String sql = """
+            SELECT 1
+            FROM usuario
+            WHERE %s = ?
+              AND id_usuario <> ?
+            """.formatted(coluna);
 
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, cpf);
+            stmt.setInt(1, idVinculo);
+            stmt.setInt(2, idUsuarioIgnorado);
 
             try (ResultSet rs = stmt.executeQuery()) {
                 return rs.next();
             }
         }
+    }
+
+    public boolean existeCpf(String cpf) throws SQLException {
+        String cpfTratado = cpf.trim().replaceAll("\\D", "");
+
+        if (!ValidaCPF.isValido(cpfTratado)) {
+            throw new IllegalArgumentException("CPF inválido.");
+        }
+
+        final String sql = "SELECT 1 FROM usuario WHERE cpf = ?";
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, cpfTratado);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    public boolean existeAlunoId(int alunoId, int idUsuarioIgnorado) throws SQLException {
+        return existeVinculo("aluno_id", alunoId, idUsuarioIgnorado);
+    }
+
+    public boolean existeFuncionarioId(int funcionarioId, int idUsuarioIgnorado) throws SQLException {
+        return existeVinculo("funcionario_id", funcionarioId, idUsuarioIgnorado);
+    }
+
+    public boolean existePaiId(int paiId, int idUsuarioIgnorado) throws SQLException {
+        return existeVinculo("pai_id", paiId, idUsuarioIgnorado);
+    }
+
+    public boolean existeProfessorId(int professorId, int idUsuarioIgnorado) throws SQLException {
+        return existeVinculo("professor_id", professorId, idUsuarioIgnorado);
     }
 
     public void inserir(Usuario usuario) throws SQLException {
@@ -79,33 +124,40 @@ public class UsuarioDAO {
         final String sql = """
             UPDATE usuario
                SET senha_hash = ?,
-                   ativo = ?,
                    tipo_usuario = ?,
                    aluno_id = ?,
                    funcionario_id = ?,
                    pai_id = ?,
                    professor_id = ?
              WHERE id_usuario = ?
+               AND ativo = true
             """;
 
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, usuario.getSenhaHash());
-            stmt.setBoolean(2, usuario.isAtivo());
-            stmt.setString(3, usuario.getTipoUsuario().name());
-            setNullableInt(stmt, 4, usuario.getAlunoId());
-            setNullableInt(stmt, 5, usuario.getFuncionarioId());
-            setNullableInt(stmt, 6, usuario.getPaiId());
-            setNullableInt(stmt, 7, usuario.getProfessorId());
-            stmt.setInt(8, usuario.getIdUsuario());
+            stmt.setString(2, usuario.getTipoUsuario().name());
+            setNullableInt(stmt, 3, usuario.getAlunoId());
+            setNullableInt(stmt, 4, usuario.getFuncionarioId());
+            setNullableInt(stmt, 5, usuario.getPaiId());
+            setNullableInt(stmt, 6, usuario.getProfessorId());
+            stmt.setInt(7, usuario.getIdUsuario());
 
             int linhasAfetadas = stmt.executeUpdate();
             if (linhasAfetadas == 0) {
-                throw new SQLException("Falha ao atualizar usuário. Nenhuma linha afetada.");
+                verificarFalhaAtualizacao(usuario.getIdUsuario());
             }
         }
     }
 
     public void atualizarUltimoLogin(int idUsuario, LocalDateTime ultimoLogin) throws SQLException {
+        if (idUsuario <= 0) {
+            throw new IllegalArgumentException("ID do usuário inválido.");
+        }
+
+        if (ultimoLogin == null) {
+            throw new IllegalArgumentException("Último login não pode ser nulo.");
+        }
+
         final String sql = """
             UPDATE usuario
                SET ultimo_login = ?
@@ -119,6 +171,33 @@ public class UsuarioDAO {
             int linhasAfetadas = stmt.executeUpdate();
             if (linhasAfetadas == 0) {
                 throw new SQLException("Falha ao atualizar último login. Nenhuma linha afetada.");
+            }
+        }
+    }
+
+    public void atualizarSenhaHash(int idUsuario, String senhaHash) throws SQLException {
+        if (idUsuario <= 0) {
+            throw new IllegalArgumentException("ID do usuário inválido.");
+        }
+
+        if (senhaHash == null || senhaHash.isBlank()) {
+            throw new IllegalArgumentException("Hash da senha é obrigatório.");
+        }
+
+        final String sql = """
+            UPDATE usuario
+               SET senha_hash = ?
+             WHERE id_usuario = ?
+               AND ativo = true
+            """;
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, senhaHash);
+            stmt.setInt(2, idUsuario);
+
+            int linhasAfetadas = stmt.executeUpdate();
+            if (linhasAfetadas == 0) {
+                verificarFalhaAtualizacao(idUsuario);
             }
         }
     }
@@ -138,6 +217,10 @@ public class UsuarioDAO {
     }
 
     public Usuario buscarPorId(int idUsuario) throws SQLException {
+        if (idUsuario <= 0) {
+            throw new IllegalArgumentException("ID do usuário inválido.");
+        }
+
         final String sql = """
             SELECT
                 id_usuario,
@@ -159,15 +242,18 @@ public class UsuarioDAO {
             stmt.setInt(1, idUsuario);
 
             try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return mapearUsuario(rs);
-                }
-                return null;
+                return rs.next() ? mapearUsuario(rs) : null;
             }
         }
     }
 
     public Usuario buscarPorCpf(String cpf) throws SQLException {
+        String cpfTratado = cpf.trim().replaceAll("\\D", "");
+
+        if (!ValidaCPF.isValido(cpfTratado)) {
+            throw new IllegalArgumentException("CPF inválido.");
+        }
+
         final String sql = """
             SELECT
                 id_usuario,
@@ -186,18 +272,110 @@ public class UsuarioDAO {
             """;
 
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, cpf);
+            stmt.setString(1, cpfTratado);
 
             try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return mapearUsuario(rs);
-                }
-                return null;
+                return rs.next() ? mapearUsuario(rs) : null;
             }
         }
     }
 
-    public List<Usuario> listar() throws SQLException {
+    private Usuario buscarPorVinculo(String coluna, int idVinculo) throws SQLException {
+        if (idVinculo <= 0) {
+            return null;
+        }
+
+        final String sql = """
+            SELECT
+                id_usuario,
+                cpf,
+                senha_hash,
+                ativo,
+                data_criacao,
+                ultimo_login,
+                tipo_usuario,
+                aluno_id,
+                funcionario_id,
+                pai_id,
+                professor_id
+            FROM usuario
+            WHERE %s = ?
+            """.formatted(coluna);
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, idVinculo);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next() ? mapearUsuario(rs) : null;
+            }
+        }
+    }
+
+    public Usuario buscarPorAlunoId(int alunoId) throws SQLException {
+        return buscarPorVinculo("aluno_id", alunoId);
+    }
+
+    public Usuario buscarPorFuncionarioId(int funcionarioId) throws SQLException {
+        return buscarPorVinculo("funcionario_id", funcionarioId);
+    }
+
+    public Usuario buscarPorPaiId(int paiId) throws SQLException {
+        return buscarPorVinculo("pai_id", paiId);
+    }
+
+    public Usuario buscarPorProfessorId(int professorId) throws SQLException {
+        return buscarPorVinculo("professor_id", professorId);
+    }
+
+    public boolean inativar(int idUsuario) throws SQLException {
+        if (idUsuario <= 0) {
+            throw new IllegalArgumentException("ID do usuário inválido.");
+        }
+
+        final String sql = """
+            UPDATE usuario
+               SET ativo = false
+             WHERE id_usuario = ?
+               AND ativo = true
+            """;
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, idUsuario);
+
+            int linhasAfetadas = stmt.executeUpdate();
+            if (linhasAfetadas == 0) {
+                verificarFalhaInativacao(idUsuario);
+            }
+
+            return true;
+        }
+    }
+
+    public boolean reativar(int idUsuario) throws SQLException {
+        if (idUsuario <= 0) {
+            throw new IllegalArgumentException("ID do usuário inválido.");
+        }
+
+        final String sql = """
+            UPDATE usuario
+               SET ativo = true
+             WHERE id_usuario = ?
+               AND ativo = false
+            """;
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, idUsuario);
+
+            int linhasAfetadas = stmt.executeUpdate();
+            if (linhasAfetadas == 0) {
+                verificarFalhaReativacao(idUsuario);
+            }
+
+            return true;
+        }
+    }
+
+    public List<Usuario> listarTodos() throws SQLException {
         final String sql = """
             SELECT
                 id_usuario,
@@ -228,84 +406,7 @@ public class UsuarioDAO {
         return usuarios;
     }
 
-    public boolean excluir(int idUsuario) throws SQLException {
-        final String sql = "DELETE FROM usuario WHERE id_usuario = ?";
-
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, idUsuario);
-
-            int linhasAfetadas = stmt.executeUpdate();
-            if (linhasAfetadas == 0) {
-                throw new SQLException("Falha ao excluir usuário. Nenhuma linha afetada.");
-            }
-
-            return true;
-        }
-    }
-
-    public Usuario buscarPorAlunoId(int alunoId) throws SQLException {
-        return buscarPorVinculo("aluno_id", alunoId);
-    }
-
-    public Usuario buscarPorFuncionarioId(int funcionarioId) throws SQLException {
-        return buscarPorVinculo("funcionario_id", funcionarioId);
-    }
-
-    public Usuario buscarPorPaiId(int paiId) throws SQLException {
-        return buscarPorVinculo("pai_id", paiId);
-    }
-
-    public Usuario buscarPorProfessorId(int professorId) throws SQLException {
-        return buscarPorVinculo("professor_id", professorId);
-    }
-
-    public void atualizarSenhaHash(int idUsuario, String senhaHash) throws SQLException {
-        if (idUsuario <= 0) {
-            throw new IllegalArgumentException("ID do usuario invalido.");
-        }
-
-        if (senhaHash == null || senhaHash.isBlank()) {
-            throw new IllegalArgumentException("Hash da senha e obrigatorio.");
-        }
-
-        final String sql = """
-            UPDATE usuario
-               SET senha_hash = ?
-             WHERE id_usuario = ?
-            """;
-
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, senhaHash);
-            stmt.setInt(2, idUsuario);
-
-            int linhasAfetadas = stmt.executeUpdate();
-            if (linhasAfetadas == 0) {
-                throw new SQLException("Falha ao atualizar senha do usuario. Nenhuma linha afetada.");
-            }
-        }
-    }
-
-    public boolean existeAlunoId(int alunoId, int idUsuarioIgnorado) throws SQLException {
-        return existeVinculo("aluno_id", alunoId, idUsuarioIgnorado);
-    }
-
-    public boolean existeFuncionarioId(int funcionarioId, int idUsuarioIgnorado) throws SQLException {
-        return existeVinculo("funcionario_id", funcionarioId, idUsuarioIgnorado);
-    }
-
-    public boolean existePaiId(int paiId, int idUsuarioIgnorado) throws SQLException {
-        return existeVinculo("pai_id", paiId, idUsuarioIgnorado);
-    }
-
-    public boolean existeProfessorId(int professorId, int idUsuarioIgnorado) throws SQLException {
-        return existeVinculo("professor_id", professorId, idUsuarioIgnorado);
-    }
-
-    private Usuario buscarPorVinculo(String coluna, int idVinculo) throws SQLException {
-        if (idVinculo <= 0) {
-            return null;
-        }
-
+    public List<Usuario> listarAtivos() throws SQLException {
         final String sql = """
             SELECT
                 id_usuario,
@@ -320,41 +421,53 @@ public class UsuarioDAO {
                 pai_id,
                 professor_id
             FROM usuario
-            WHERE %s = ?
-            """.formatted(coluna);
+            WHERE ativo = true
+            ORDER BY id_usuario
+            """;
 
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, idVinculo);
+        List<Usuario> usuarios = new ArrayList<>();
 
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return mapearUsuario(rs);
-                }
-                return null;
+        try (PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                usuarios.add(mapearUsuario(rs));
             }
         }
+
+        return usuarios;
     }
 
-    private boolean existeVinculo(String coluna, int idVinculo, int idUsuarioIgnorado) throws SQLException {
-        if (idVinculo <= 0) {
-            return false;
-        }
-
+    public List<Usuario> listarInativos() throws SQLException {
         final String sql = """
-            SELECT 1
+            SELECT
+                id_usuario,
+                cpf,
+                senha_hash,
+                ativo,
+                data_criacao,
+                ultimo_login,
+                tipo_usuario,
+                aluno_id,
+                funcionario_id,
+                pai_id,
+                professor_id
             FROM usuario
-            WHERE %s = ?
-              AND id_usuario <> ?
-            """.formatted(coluna);
+            WHERE ativo = false
+            ORDER BY id_usuario
+            """;
 
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, idVinculo);
-            stmt.setInt(2, idUsuarioIgnorado);
+        List<Usuario> usuarios = new ArrayList<>();
 
-            try (ResultSet rs = stmt.executeQuery()) {
-                return rs.next();
+        try (PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                usuarios.add(mapearUsuario(rs));
             }
         }
+
+        return usuarios;
     }
 
     private void preencherUsuarioParaInsert(PreparedStatement stmt, Usuario usuario) throws SQLException {
@@ -383,7 +496,11 @@ public class UsuarioDAO {
         usuario.setCpf(rs.getString("cpf"));
         usuario.setSenhaHash(rs.getString("senha_hash"));
         usuario.setAtivo(rs.getBoolean("ativo"));
-        usuario.setDataCriacao(rs.getDate("data_criacao").toLocalDate());
+
+        Date dataCriacao = rs.getDate("data_criacao");
+        if (dataCriacao != null) {
+            usuario.carregarDataCriacaoDoBanco(dataCriacao.toLocalDate());
+        }
 
         Timestamp ultimoLogin = rs.getTimestamp("ultimo_login");
         if (ultimoLogin != null) {
@@ -391,10 +508,26 @@ public class UsuarioDAO {
         }
 
         usuario.setTipoUsuario(TipoUsuario.valueOf(rs.getString("tipo_usuario")));
-        usuario.setAlunoId(getNullableInt(rs, "aluno_id"));
-        usuario.setFuncionarioId(getNullableInt(rs, "funcionario_id"));
-        usuario.setPaiId(getNullableInt(rs, "pai_id"));
-        usuario.setProfessorId(getNullableInt(rs, "professor_id"));
+
+        int alunoId = getNullableInt(rs, "aluno_id");
+        if (alunoId > 0) {
+            usuario.setAlunoId(alunoId);
+        }
+
+        int funcionarioId = getNullableInt(rs, "funcionario_id");
+        if (funcionarioId > 0) {
+            usuario.setFuncionarioId(funcionarioId);
+        }
+
+        int paiId = getNullableInt(rs, "pai_id");
+        if (paiId > 0) {
+            usuario.setPaiId(paiId);
+        }
+
+        int professorId = getNullableInt(rs, "professor_id");
+        if (professorId > 0) {
+            usuario.setProfessorId(professorId);
+        }
 
         return usuario;
     }
@@ -415,6 +548,60 @@ public class UsuarioDAO {
     private void validarUsuarioNaoNulo(Usuario usuario) {
         if (usuario == null) {
             throw new IllegalArgumentException("Usuário não pode ser nulo.");
+        }
+    }
+
+    private void verificarFalhaAtualizacao(int idUsuario) throws SQLException {
+        final String sql = "SELECT ativo FROM usuario WHERE id_usuario = ?";
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, idUsuario);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (!rs.next()) {
+                    throw new SQLException("Usuário não encontrado.");
+                }
+
+                if (!rs.getBoolean("ativo")) {
+                    throw new SQLException("Usuário está inativo e não pode ser atualizado.");
+                }
+            }
+        }
+    }
+
+    private void verificarFalhaInativacao(int idUsuario) throws SQLException {
+        final String sql = "SELECT ativo FROM usuario WHERE id_usuario = ?";
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, idUsuario);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (!rs.next()) {
+                    throw new SQLException("Usuário não encontrado.");
+                }
+
+                if (!rs.getBoolean("ativo")) {
+                    throw new SQLException("Usuário já está inativo.");
+                }
+            }
+        }
+    }
+
+    private void verificarFalhaReativacao(int idUsuario) throws SQLException {
+        final String sql = "SELECT ativo FROM usuario WHERE id_usuario = ?";
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, idUsuario);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (!rs.next()) {
+                    throw new SQLException("Usuário não encontrado.");
+                }
+
+                if (rs.getBoolean("ativo")) {
+                    throw new SQLException("Usuário já está ativo.");
+                }
+            }
         }
     }
 }

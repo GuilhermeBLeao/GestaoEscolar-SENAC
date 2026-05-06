@@ -2,6 +2,8 @@
 
 package controller;
 
+import dao.AlunoDAO;
+import dao.DisciplinaDAO;
 import dao.PresencaDAO;
 import database.ConnectionFactory;
 import model.Presenca;
@@ -131,6 +133,21 @@ public class PresencaController {
         return presencaBanco;
     }
 
+
+    private void validarExistenciasRelacionamentos(
+            AlunoDAO alunoDAO,
+            DisciplinaDAO disciplinaDAO,
+            Presenca presenca
+    ) throws SQLException {
+        if (alunoDAO.buscarPorId(presenca.getAlunoId()) == null) {
+            throw new IllegalArgumentException("Aluno informado não existe.");
+        }
+
+        if (disciplinaDAO.buscarPorId(presenca.getDisciplinaId()) == null) {
+            throw new IllegalArgumentException("Disciplina informada não existe.");
+        }
+    }
+
     private String tratarTexto(String valor) {
         if (valor == null) {
             return null;
@@ -147,6 +164,7 @@ public class PresencaController {
 
         executarEmTransacao(conn -> {
             PresencaDAO presencaDAO = new PresencaDAO(conn);
+            validarExistenciasRelacionamentos(new AlunoDAO(conn), new DisciplinaDAO(conn), presenca);
 
             Presenca presencaExistente = presencaDAO.buscarPorAlunoDisciplinaData(
                     presenca.getAlunoId(),
@@ -183,6 +201,7 @@ public class PresencaController {
             }
 
             validarParaAtualizacao(presencaAtualizada, presencaBanco);
+            validarExistenciasRelacionamentos(new AlunoDAO(conn), new DisciplinaDAO(conn), presencaAtualizada);
 
             Presenca presencaParaSalvar = mesclarDadosPermitidos(presencaBanco, presencaAtualizada);
             presencaDAO.atualizar(presencaParaSalvar);

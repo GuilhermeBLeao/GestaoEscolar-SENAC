@@ -8,13 +8,19 @@ public class Turma{
 	private int idTurma, salaId;
 	private String descricaoTurma;
 	private Turno turno;
+	private boolean ativo;
 	
 	public int getIdTurma() {return idTurma;}
-	public void setIdTurma(int idTurma) {this.idTurma = idTurma;}
+	public void setIdTurma(int idTurma) {
+		if(idTurma <= 0) {
+			throw new IllegalArgumentException("ID da turma é inválido.");
+		}
+		this.idTurma = idTurma;
+		}
 	public int getSalaId() {return salaId;}
 	public void setSalaId(int salaId) {
 		if(salaId <=0)
-			throw new IllegalArgumentException("ID da sala não pode ser menor ou igual a 0.");
+			throw new IllegalArgumentException("ID da sala é inválido.");
 		this.salaId = salaId;
 		}
 	public String getDescricaoTurma() {return descricaoTurma;}
@@ -31,4 +37,6 @@ public class Turma{
 	        throw new IllegalArgumentException("Campo turno é obrigatório.");
 		this.turno = turno;
 	}
+	public boolean isAtivo() {return ativo;}
+	public void setAtivo(boolean ativo) {this.ativo = ativo;}
 }
