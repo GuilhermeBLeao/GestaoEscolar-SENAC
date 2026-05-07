@@ -23,6 +23,12 @@ public class Boletim {
 	public LocalDate getDatageracao() {return datageracao;}
 	public void setDatageracao(LocalDate datageracao) {this.datageracao = datageracao;}
 	public List<BoletimItem> getItens() {return itens;}
-	public void setItens(List<BoletimItem> itens) {this.itens = itens;}
+	public void setItens(List<BoletimItem> itens) {
+		if(itens == null) {
+			this.itens = new ArrayList<>();
+		}else {
+			this.itens = itens;
+		}
+		}
 	public void adicionarItem(BoletimItem item) {this.itens.add(item);}
 }

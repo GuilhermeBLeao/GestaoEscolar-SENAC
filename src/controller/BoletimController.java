@@ -40,7 +40,7 @@ public class BoletimController {
 
 	            List<Boletim> boletins = dao.buscarPorTurma(idTurma);
 
-	            if (boletins.isEmpty()) {
+	            if (boletins == null || boletins.isEmpty()) {
 	                throw new IllegalArgumentException("Nenhuma nota encontrada para esta turma.");
 	            }
 	            return boletins;
