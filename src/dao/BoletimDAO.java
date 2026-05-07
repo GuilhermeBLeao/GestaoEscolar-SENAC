@@ -34,7 +34,7 @@ public class BoletimDAO {
 						a.matricula,
 						a.turma_id,
 						d.id_disciplina,
-						d.descricao AS nome_disciplina
+						d.descricao AS nome_disciplina,
 						AVG(n.nota) AS media
 					FROM aluno a
 					INNER JOIN nota n 
