@@ -1,4 +1,4 @@
-//Luiz, Igor e Guilherme
+// Luiz, Igor e Guilherme
 
 package controller;
 
@@ -19,19 +19,17 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ChamadaController{
-	public Chamada prepararChamada(int professorId, int turmaId, int disciplinaId) {
-		if(professorId <= 0) {
-			throw new IllegalArgumentException("ID do professor é inválido.");
-		}
-		if(turmaId <= 0) {
-			throw new IllegalArgumentException("ID da turma é inválido.");
-		}
-		if(disciplinaId <= 0) {
-			throw new IllegalArgumentException("ID da disciplina é inválido");
-		}
-		
-		try(Connection conn = ConnectionFactory.getConnection()){
+public class ChamadaController {
+
+    public Chamada prepararChamada(int professorId, int turmaId, int disciplinaId) {
+        if (professorId <= 0)
+            throw new IllegalArgumentException("ID do professor é inválido.");
+        if (turmaId <= 0)
+            throw new IllegalArgumentException("ID da turma é inválido.");
+        if (disciplinaId <= 0)
+            throw new IllegalArgumentException("ID da disciplina é inválido.");
+
+        try (Connection conn = ConnectionFactory.getConnection()) {
             validarExistenciasRelacionamentos(
                     new ProfessorDAO(conn),
                     new TurmaDAO(conn),
@@ -40,52 +38,41 @@ public class ChamadaController{
                     turmaId,
                     disciplinaId
             );
-			//Cria o DAO
-			AlunoDAO alunoBanco = new AlunoDAO(conn);
-			//Busca todos os alunos daquela turma
-			List<Aluno> alunos = alunoBanco.listarPorTurma(turmaId);
-			
-			//Evita criar chamada sem alunos
-			if(alunos.isEmpty()) {
-				throw new IllegalArgumentException("Não existem alunos cadastrados nesta turma.");
-			}
-			
-			//Cria os itens da chamada
-			List<ChamadaItem> itens = new ArrayList<>();
-			
-			//Para cada aluno
-			for(Aluno aluno : alunos) {
-				//Cria um item da chamada (presença individual)
-				itens.add(new ChamadaItem(aluno.getIdAluno(), aluno.getNome()));
-			}
-			
-			//Monta o objeto da chamada
-			Chamada chamada = new Chamada();
-			//Define professor, turma, data e lista de alunos.
-			chamada.setProfessorId(professorId);
-			chamada.setTurmaId(turmaId);
-			chamada.setData(LocalDate.now());
-			chamada.setDisciplinaId(disciplinaId);
-			chamada.setItens(itens);
-			
-			//Retorna a chamada pronta(mas ainda não salva)
-			return chamada;			
-		}catch(SQLException e) {
-			throw new RuntimeException("Erro ao preparar a chamada.", e);
-		}
-	}
-	
-	//Responsável por persistir a chamada no banco
-	public void salvarChamada(Chamada chamada) {
-        //Validação
-		validarChamada(chamada);
+
+            List<Aluno> alunos = new AlunoDAO(conn).listarPorTurma(turmaId);
+
+            if (alunos.isEmpty())
+                throw new IllegalArgumentException("Não existem alunos cadastrados nesta turma.");
+
+            List<ChamadaItem> itens = new ArrayList<>();
+            for (Aluno aluno : alunos) {
+                itens.add(new ChamadaItem(aluno.getIdAluno(), aluno.getNome()));
+            }
+
+            Chamada chamada = new Chamada();
+            chamada.setProfessorId(professorId);
+            chamada.setTurmaId(turmaId);
+            chamada.setDisciplinaId(disciplinaId);
+            chamada.setData(LocalDate.now());
+            chamada.setItens(itens);
+
+            return chamada;
+
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao preparar a chamada.", e);
+        }
+    }
+
+    // Responsável por persistir a chamada no banco.
+    public void salvarChamada(Chamada chamada) {
+        validarChamada(chamada);
 
         try (Connection conn = ConnectionFactory.getConnection()) {
-            //Inicia a transação manual
-        	conn.setAutoCommit(false);
+            conn.setAutoCommit(false);
 
             try {
                 PresencaDAO presencaDAO = new PresencaDAO(conn);
+
                 validarExistenciasRelacionamentos(
                         new ProfessorDAO(conn),
                         new TurmaDAO(conn),
@@ -94,21 +81,31 @@ public class ChamadaController{
                         chamada.getTurmaId(),
                         chamada.getDisciplinaId()
                 );
-                
-                //Loop dos alunos                
+
                 for (ChamadaItem item : chamada.getItens()) {
-                	Presenca existente = presencaDAO.buscarPorAlunoDisciplinaData(item.getAlunoId(), chamada.getDisciplinaId(), chamada.getData());
+                    Presenca existente = presencaDAO.buscarPorAlunoDisciplinaData(
+                            item.getAlunoId(),
+                            chamada.getDisciplinaId(),
+                            chamada.getData()
+                    );
 
-                	if (existente != null) {
-                	    throw new IllegalArgumentException("Já existe chamada para o aluno ID: " + item.getAlunoId());
-                	}
-                	}
+                    if (existente != null) {
+                        throw new IllegalArgumentException(
+                                "Já existe chamada para o aluno ID: " + item.getAlunoId()
+                        );
+                    }
 
-                //Confirma tudo e realiza o commit
+                    Presenca presenca = new Presenca();
+                    presenca.setAlunoId(item.getAlunoId());
+                    presenca.setDisciplinaId(chamada.getDisciplinaId());
+                    presenca.setData(chamada.getData());
+                    presenca.setPresente(item.isPresente());
+                    presencaDAO.inserir(presenca);
+                }
+
                 conn.commit();
 
             } catch (Exception e) {
-            	//Em caso de erro, desfaz tudo
                 conn.rollback();
                 throw e;
             }
@@ -126,41 +123,28 @@ public class ChamadaController{
             int turmaId,
             int disciplinaId
     ) throws SQLException {
-        if (professorDAO.buscarPorId(professorId) == null) {
+        if (professorDAO.buscarPorId(professorId) == null)
             throw new IllegalArgumentException("Professor informado não existe.");
-        }
-
-        if (turmaDAO.buscarPorId(turmaId) == null) {
+        if (turmaDAO.buscarPorId(turmaId) == null)
             throw new IllegalArgumentException("Turma informada não existe.");
-        }
-
-        if (disciplinaDAO.buscarPorId(disciplinaId) == null) {
+        if (disciplinaDAO.buscarPorId(disciplinaId) == null)
             throw new IllegalArgumentException("Disciplina informada não existe.");
-        }
     }
 
-	private void validarChamada(Chamada chamada) {
-		//Validações
-		if(chamada == null) {
-			throw new IllegalArgumentException("Chamada não pode ser nula.");
-		}
-		if(chamada.getProfessorId() <= 0) {
-			throw new IllegalArgumentException("ID do professor é obrigatório.");
-		}
-		if(chamada.getTurmaId() <= 0) {
-			throw new IllegalArgumentException("ID da turma é obrigatório.");
-		}
-		if(chamada.getDisciplinaId() <= 0) {
-			throw new IllegalArgumentException("ID da disciplina é obrigatório.");
-		}
-		if(chamada.getData() == null) {
-			throw new IllegalArgumentException("Data da chamada é obrigatória.");
-		}
-		if(chamada.getData().isAfter(LocalDate.now())) {
-			throw new IllegalArgumentException("Data da chamada não pode ser futura.");
-		}
-		if(chamada.getItens() == null || chamada.getItens().isEmpty()) {
-			throw new IllegalArgumentException("A chamada precisa conter ao menos 1 aluno.");
-		}
-	}
+    private void validarChamada(Chamada chamada) {
+        if (chamada == null)
+            throw new IllegalArgumentException("Chamada não pode ser nula.");
+        if (chamada.getProfessorId() <= 0)
+            throw new IllegalArgumentException("ID do professor é obrigatório.");
+        if (chamada.getTurmaId() <= 0)
+            throw new IllegalArgumentException("ID da turma é obrigatório.");
+        if (chamada.getDisciplinaId() <= 0)
+            throw new IllegalArgumentException("ID da disciplina é obrigatório.");
+        if (chamada.getData() == null)
+            throw new IllegalArgumentException("Data da chamada é obrigatória.");
+        if (chamada.getData().isAfter(LocalDate.now()))
+            throw new IllegalArgumentException("Data da chamada não pode ser futura.");
+        if (chamada.getItens() == null || chamada.getItens().isEmpty())
+            throw new IllegalArgumentException("A chamada precisa conter ao menos 1 aluno.");
+    }
 }

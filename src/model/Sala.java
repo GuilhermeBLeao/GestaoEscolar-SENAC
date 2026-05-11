@@ -5,8 +5,7 @@ package model;
 public class Sala{
 	private int idSala, capacidade;
 	private boolean ativo = true;
-	
-	
+
 	public int getIdSala() {return idSala;}
 	public void setIdSala(int idSala) {
 		if(idSala <= 0) {
