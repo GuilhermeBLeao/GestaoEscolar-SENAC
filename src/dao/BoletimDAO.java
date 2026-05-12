@@ -29,6 +29,7 @@ public class BoletimDAO {
 			throw new IllegalArgumentException("ID do trimestre inválido.");
 
 		final String sql = """
+<<<<<<< boletim-trimestre-guilherme
 				SELECT
 				    a.id_aluno,
 				    a.nome          AS nome_aluno,
@@ -53,6 +54,30 @@ public class BoletimDAO {
 				    d.id_disciplina, d.descricao,
 				    t.id_trimestre, t.numero, t.data_inicio, t.data_fim, t.ano_letivo
 				ORDER BY d.descricao
+=======
+					SELECT 
+						a.id_aluno,
+						a.nome AS nome_aluno,
+						a.matricula,
+						a.turma_id,
+						d.id_disciplina,
+						d.descricao AS nome_disciplina,
+						AVG(n.nota) AS media
+					FROM aluno a
+					INNER JOIN nota n 
+					ON n.aluno_id = a.id_aluno
+					INNER JOIN disciplina d
+					ON d.id_disciplina = n.disciplina_id
+					WHERE a.id_aluno = ?
+					GROUP BY
+						a.id_aluno,
+						a.nome,
+						a.matricula,
+						a.turma_id,
+						d.id_disciplina,
+						d.descricao
+					ORDER BY d.descricao
+>>>>>>> main
 				""";
 
 		try (PreparedStatement stmt = conn.prepareStatement(sql)) {
