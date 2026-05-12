@@ -4,6 +4,7 @@ package controller;
 
 import dao.AlunoDAO;
 import dao.FuncionarioDAO;
+import dao.TurmaAlunoDAO;
 import dao.TurmaDAO;
 import database.ConnectionFactory;
 import model.Aluno;
@@ -60,10 +61,17 @@ public class DeclaracaoMatriculaController {
 				throw new IllegalArgumentException("Aluno está inativo.");
 			}
 
-			Turma turma = turmaDAO.buscarPorId(aluno.getIdTurma());
+			TurmaAlunoDAO turmaAlunoDAO = new TurmaAlunoDAO(conn);
+			model.TurmaAluno turmaAlunoHistorico = turmaAlunoDAO.buscarPorAlunoEAnoLetivo(alunoId, anoLetivo);
+
+			if (turmaAlunoHistorico == null) {
+				throw new IllegalArgumentException("Não foi encontrada turma do aluno para o ano letivo informado.");
+			}
+
+			Turma turma = turmaDAO.buscarPorId(turmaAlunoHistorico.getTurmaId());
 
 			if (turma == null) {
-				throw new IllegalArgumentException("Turma do aluno não encontrada.");
+				throw new IllegalArgumentException("Turma do aluno no ano letivo informado não foi encontrada.");
 			}
 
 			Funcionario funcionario = funcionarioDAO.buscarPorId(usuarioLogado.getFuncionarioId());

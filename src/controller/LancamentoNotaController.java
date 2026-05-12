@@ -31,7 +31,9 @@ public class LancamentoNotaController {
             throw new IllegalArgumentException("Atividade é obrigatória.");
 
         try (Connection conn = ConnectionFactory.getConnection()) {
-            validarExistenciasRelacionamentos(new TurmaDAO(conn), new DisciplinaDAO(conn), turmaId, disciplinaId);
+            DisciplinaDAO disciplinaDAO = new DisciplinaDAO(conn);
+            validarExistenciasRelacionamentos(new TurmaDAO(conn), disciplinaDAO, turmaId, disciplinaId);
+            validarDisciplinaPertenceTurma(disciplinaDAO, disciplinaId, turmaId);
 
             List<Aluno> alunos = new AlunoDAO(conn).listarPorTurma(turmaId);
 
@@ -75,7 +77,17 @@ public class LancamentoNotaController {
                         lancamento.getDisciplinaId()
                 );
 
+                DisciplinaDAO disciplinaDAO = new DisciplinaDAO(conn);
+                validarDisciplinaPertenceTurma(disciplinaDAO, lancamento.getDisciplinaId(), lancamento.getTurmaId());
+
                 for (LancamentoNotaItem item : lancamento.getItens()) {
+                    if (!alunoDAO.alunoPertenceTurma(item.getAlunoId(), lancamento.getTurmaId())) {
+                        throw new IllegalArgumentException("Aluno ID " + item.getAlunoId() + " não pertence à turma informada ou não está ativo.");
+                    }
+
+                    // MELHORIA: validar se o aluno do item pertence a lancamento.getTurmaId()
+                    // e se continua ativo. Sem isso, um payload alterado fora da tela pode
+                    // gerar nota para aluno de outra turma ou inativo.
                     validarExistenciaAluno(alunoDAO, item.getAlunoId());
 
                     Nota existente = notaDAO.buscarPorAlunoDisciplinaAtividade(
@@ -125,6 +137,16 @@ public class LancamentoNotaController {
 
         if (disciplinaDAO.buscarPorId(disciplinaId) == null)
             throw new IllegalArgumentException("Disciplina informada não existe.");
+    }
+
+    private void validarDisciplinaPertenceTurma(
+            DisciplinaDAO disciplinaDAO,
+            int disciplinaId,
+            int turmaId
+    ) throws SQLException {
+        if (!disciplinaDAO.disciplinaPertenceTurma(disciplinaId, turmaId)) {
+            throw new IllegalArgumentException("Disciplina não pertence à turma informada.");
+        }
     }
 
     private void validarExistenciaAluno(AlunoDAO alunoDAO, int alunoId) throws SQLException {

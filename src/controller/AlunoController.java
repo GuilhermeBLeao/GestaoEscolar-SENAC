@@ -4,21 +4,22 @@ package controller;
 
 import dao.AlunoDAO;
 import dao.PaisAlunoDAO;
+import dao.TurmaAlunoDAO;
 import dao.TurmaDAO;
 import database.ConnectionFactory;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.util.List;
 import model.Aluno;
 import model.Endereco;
+import model.TurmaAluno;
 import util.ValidaCEP;
 import util.ValidaCPF;
 import util.ValidaCidade;
 import util.ValidaEmail;
 import util.ValidaNome;
 import util.ValidaTelefone;
-
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.time.LocalDate;
-import java.util.List;
 
 public class AlunoController {
 	@FunctionalInterface
@@ -169,6 +170,36 @@ public class AlunoController {
 		return b;
 	}
 
+	private void registrarTurmaAtual(TurmaAlunoDAO turmaAlunoDAO, Aluno aluno, LocalDate dataEntrada)
+			throws SQLException {
+		TurmaAluno turmaAluno = new TurmaAluno();
+		turmaAluno.setAlunoId(aluno.getIdAluno());
+		turmaAluno.setTurmaId(aluno.getIdTurma());
+		turmaAluno.setDataEntrada(dataEntrada);
+		turmaAluno.setAtivo(true);
+		turmaAlunoDAO.inserir(turmaAluno);
+	}
+
+	private void registrarTurmaEncerrada(TurmaAlunoDAO turmaAlunoDAO, int alunoId, int turmaId, LocalDate dataEntrada,
+			LocalDate dataSaida) throws SQLException {
+		TurmaAluno turmaAluno = new TurmaAluno();
+		turmaAluno.setAlunoId(alunoId);
+		turmaAluno.setTurmaId(turmaId);
+		turmaAluno.setDataEntrada(dataEntrada == null || dataEntrada.isAfter(dataSaida) ? dataSaida : dataEntrada);
+		turmaAluno.setDataSaida(dataSaida);
+		turmaAluno.setAtivo(false);
+		turmaAlunoDAO.inserir(turmaAluno);
+	}
+
+	private void encerrarTurmaAtualOuRegistrarLegado(TurmaAlunoDAO turmaAlunoDAO, Aluno aluno, int turmaAnterior,
+			LocalDate dataSaida) throws SQLException {
+		boolean encerrouHistoricoAtual = turmaAlunoDAO.encerrarTurmaAtual(aluno.getIdAluno(), dataSaida);
+		if (!encerrouHistoricoAtual) {
+			registrarTurmaEncerrada(turmaAlunoDAO, aluno.getIdAluno(), turmaAnterior, aluno.getDataCadastro(),
+					dataSaida);
+		}
+	}
+
 	private void informarSeInativo(Aluno a) {
 		if (a != null && !a.isAtivo())
 			System.out.println("ATENÇÃO: aluno encontrado, porém está inativo.");
@@ -187,6 +218,7 @@ public class AlunoController {
 				throw new IllegalArgumentException("Já existe aluno cadastrado com esta matrícula.");
 			validarRelacionamentos(conn, aluno);
 			dao.inserir(aluno);
+			registrarTurmaAtual(new TurmaAlunoDAO(conn), aluno, aluno.getDataCadastro());
 			return null;
 		}, "Erro ao salvar aluno.");
 	}
@@ -207,7 +239,18 @@ public class AlunoController {
 				throw new IllegalArgumentException("Não é possível atualizar aluno inativo.");
 			validarImutaveis(alunoAtualizado, banco);
 			validarRelacionamentos(conn, alunoAtualizado);
+			int turmaAnterior = banco.getIdTurma();
+			LocalDate dataCadastro = banco.getDataCadastro();
 			dao.atualizar(mesclar(banco, alunoAtualizado));
+			if (turmaAnterior != alunoAtualizado.getIdTurma()) {
+				TurmaAlunoDAO turmaAlunoDAO = new TurmaAlunoDAO(conn);
+				Aluno alunoAnterior = new Aluno();
+				alunoAnterior.setIdAluno(alunoAtualizado.getIdAluno());
+				alunoAnterior.setIdTurma(turmaAnterior);
+				alunoAnterior.setDataCadastro(dataCadastro);
+				encerrarTurmaAtualOuRegistrarLegado(turmaAlunoDAO, alunoAnterior, turmaAnterior, LocalDate.now());
+				registrarTurmaAtual(turmaAlunoDAO, alunoAtualizado, LocalDate.now());
+			}
 			return null;
 		}, "Erro ao atualizar aluno.");
 	}
@@ -218,9 +261,12 @@ public class AlunoController {
 			throw new IllegalArgumentException("ID do aluno inválido.");
 		return executarEmTransacao(conn -> {
 			AlunoDAO dao = new AlunoDAO(conn);
-			if (dao.buscarPorId(idAluno) == null)
+			Aluno aluno = dao.buscarPorId(idAluno);
+			if (aluno == null)
 				throw new IllegalArgumentException("Aluno não encontrado.");
-			return dao.inativar(idAluno);
+			boolean inativou = dao.inativar(idAluno);
+			encerrarTurmaAtualOuRegistrarLegado(new TurmaAlunoDAO(conn), aluno, aluno.getIdTurma(), LocalDate.now());
+			return inativou;
 		}, "Erro ao excluir aluno.");
 	}
 
@@ -228,7 +274,17 @@ public class AlunoController {
 	public boolean reativarAluno(int idAluno) {
 		if (idAluno <= 0)
 			throw new IllegalArgumentException("ID do aluno inválido.");
-		return executarEmTransacao(conn -> new AlunoDAO(conn).reativar(idAluno), "Erro ao reativar aluno.");
+		return executarEmTransacao(conn -> {
+			AlunoDAO dao = new AlunoDAO(conn);
+			Aluno aluno = dao.buscarPorId(idAluno);
+			if (aluno == null)
+				throw new IllegalArgumentException("Aluno não encontrado.");
+			boolean reativou = dao.reativar(idAluno);
+			TurmaAlunoDAO turmaAlunoDAO = new TurmaAlunoDAO(conn);
+			turmaAlunoDAO.encerrarTurmaAtual(idAluno, LocalDate.now());
+			registrarTurmaAtual(turmaAlunoDAO, aluno, LocalDate.now());
+			return reativou;
+		}, "Erro ao reativar aluno.");
 	}
 
 	// Busca aluno por ID, retornando também inativos e avisando quando o cadastro

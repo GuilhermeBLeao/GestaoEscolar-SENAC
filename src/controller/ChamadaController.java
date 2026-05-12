@@ -30,14 +30,16 @@ public class ChamadaController {
             throw new IllegalArgumentException("ID da disciplina é inválido.");
 
         try (Connection conn = ConnectionFactory.getConnection()) {
+            DisciplinaDAO disciplinaDAO = new DisciplinaDAO(conn);
             validarExistenciasRelacionamentos(
                     new ProfessorDAO(conn),
                     new TurmaDAO(conn),
-                    new DisciplinaDAO(conn),
+                    disciplinaDAO,
                     professorId,
                     turmaId,
                     disciplinaId
             );
+            validarDisciplinaPertenceTurma(disciplinaDAO, disciplinaId, turmaId);
 
             List<Aluno> alunos = new AlunoDAO(conn).listarPorTurma(turmaId);
 
@@ -82,7 +84,19 @@ public class ChamadaController {
                         chamada.getDisciplinaId()
                 );
 
+                DisciplinaDAO disciplinaDAO = new DisciplinaDAO(conn);
+                validarDisciplinaPertenceTurma(disciplinaDAO, chamada.getDisciplinaId(), chamada.getTurmaId());
+
                 for (ChamadaItem item : chamada.getItens()) {
+                    AlunoDAO alunoDAO = new AlunoDAO(conn);
+                    if (!alunoDAO.alunoPertenceTurma(item.getAlunoId(), chamada.getTurmaId())) {
+                        throw new IllegalArgumentException("Aluno ID " + item.getAlunoId() + " não pertence à turma informada ou não está ativo.");
+                    }
+
+                    // MELHORIA: conferir se cada aluno do payload ainda pertence a
+                    // chamada.getTurmaId() e se esta ativo. Como a validacao atual so
+                    // verifica existencia do aluno, um payload montado manualmente pode
+                    // registrar presenca para aluno de outra turma ou inativo.
                     Presenca existente = presencaDAO.buscarPorAlunoDisciplinaData(
                             item.getAlunoId(),
                             chamada.getDisciplinaId(),
@@ -129,6 +143,16 @@ public class ChamadaController {
             throw new IllegalArgumentException("Turma informada não existe.");
         if (disciplinaDAO.buscarPorId(disciplinaId) == null)
             throw new IllegalArgumentException("Disciplina informada não existe.");
+    }
+
+    private void validarDisciplinaPertenceTurma(
+            DisciplinaDAO disciplinaDAO,
+            int disciplinaId,
+            int turmaId
+    ) throws SQLException {
+        if (!disciplinaDAO.disciplinaPertenceTurma(disciplinaId, turmaId)) {
+            throw new IllegalArgumentException("Disciplina não pertence à turma informada.");
+        }
     }
 
     private void validarChamada(Chamada chamada) {

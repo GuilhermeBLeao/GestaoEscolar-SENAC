@@ -220,6 +220,32 @@ public class DisciplinaDAO {
 		return lista;
 	}
 
+	// Verifica se uma disciplina pertence a uma turma específica
+	public boolean disciplinaPertenceTurma(int idDisciplina, int idTurma) throws SQLException {
+		if (idDisciplina <= 0) {
+			throw new IllegalArgumentException("ID da disciplina inválido.");
+		}
+		if (idTurma <= 0) {
+			throw new IllegalArgumentException("ID da turma inválido.");
+		}
+
+		final String sql = """
+				SELECT 1
+				FROM turma_disciplina
+				WHERE disciplina_id = ?
+				  AND turma_id = ?
+				""";
+
+		try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+			stmt.setInt(1, idDisciplina);
+			stmt.setInt(2, idTurma);
+
+			try (ResultSet rs = stmt.executeQuery()) {
+				return rs.next();
+			}
+		}
+	}
+
 	// Inativa uma disciplina (exclusão lógica)
 	public boolean inativar(int idDisciplina) throws SQLException {
 		if (idDisciplina <= 0) {

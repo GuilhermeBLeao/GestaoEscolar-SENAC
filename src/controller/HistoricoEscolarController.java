@@ -7,6 +7,7 @@ import dao.DisciplinaDAO;
 import dao.FuncionarioDAO;
 import dao.NotaDAO;
 import dao.PresencaDAO;
+import dao.TurmaAlunoDAO;
 import dao.TurmaDAO;
 import database.ConnectionFactory;
 import model.Aluno;
@@ -17,6 +18,7 @@ import model.HistoricoEscolarItem;
 import model.Nota;
 import model.Presenca;
 import model.Turma;
+import model.TurmaAluno;
 import model.Usuario;
 import util.SessaoUsuario;
 
@@ -25,7 +27,9 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class HistoricoEscolarController {
 
@@ -63,17 +67,12 @@ public class HistoricoEscolarController {
 			DisciplinaDAO disciplinaDAO = new DisciplinaDAO(conn);
 			NotaDAO notaDAO = new NotaDAO(conn);
 			PresencaDAO presencaDAO = new PresencaDAO(conn);
+			TurmaAlunoDAO turmaAlunoDAO = new TurmaAlunoDAO(conn);
 
 			Aluno aluno = alunoDAO.buscarPorId(alunoId);
 
 			if (aluno == null) {
 				throw new IllegalArgumentException("Aluno não encontrado.");
-			}
-
-			Turma turma = turmaDAO.buscarPorId(aluno.getIdTurma());
-
-			if (turma == null) {
-				throw new IllegalArgumentException("Turma do aluno não encontrada.");
 			}
 
 			Funcionario funcionario = funcionarioDAO.buscarPorId(usuarioLogado.getFuncionarioId());
@@ -82,10 +81,13 @@ public class HistoricoEscolarController {
 				throw new IllegalArgumentException("Funcionário vinculado ao usuário logado não foi encontrado.");
 			}
 
-			List<Disciplina> disciplinas = disciplinaDAO.listarPorTurma(aluno.getIdTurma());
+			List<TurmaAluno> historicoTurmas = turmaAlunoDAO.listarPorAluno(alunoId);
+			List<Disciplina> disciplinas = listarDisciplinasDoHistorico(historicoTurmas, aluno, turmaDAO,
+					disciplinaDAO);
+			String descricaoTurmas = montarDescricaoTurmas(historicoTurmas, aluno, turmaDAO);
 
 			if (disciplinas.isEmpty()) {
-				throw new IllegalArgumentException("Não existem disciplinas cadastradas para a turma do aluno.");
+				throw new IllegalArgumentException("Não existem disciplinas cadastradas para as turmas do aluno.");
 			}
 
 			List<Nota> notasAluno = notaDAO.listarPorAluno(alunoId);
@@ -98,7 +100,7 @@ public class HistoricoEscolarController {
 			historico.setAlunoId(aluno.getIdAluno());
 			historico.setNomeAluno(aluno.getNome());
 			historico.setMatricula(aluno.getMatricula());
-			historico.setTurma(turma.getDescricaoTurma());
+			historico.setTurma(descricaoTurmas);
 			historico.setAnoLetivo(anoLetivo);
 			historico.setDataEmissao(LocalDate.now());
 			historico.setItens(itens);
@@ -112,6 +114,58 @@ public class HistoricoEscolarController {
 		} catch (SQLException e) {
 			throw new RuntimeException("Erro ao montar histórico escolar.", e);
 		}
+	}
+
+	private List<Disciplina> listarDisciplinasDoHistorico(List<TurmaAluno> historicoTurmas, Aluno aluno,
+			TurmaDAO turmaDAO, DisciplinaDAO disciplinaDAO) throws SQLException {
+		Map<Integer, Disciplina> disciplinasPorId = new LinkedHashMap<>();
+
+		if (historicoTurmas.isEmpty()) {
+			for (Disciplina disciplina : disciplinaDAO.listarPorTurma(aluno.getIdTurma())) {
+				disciplinasPorId.putIfAbsent(disciplina.getIdDisciplina(), disciplina);
+			}
+			return new ArrayList<>(disciplinasPorId.values());
+		}
+
+		for (TurmaAluno turmaAluno : historicoTurmas) {
+			Turma turma = turmaDAO.buscarPorId(turmaAluno.getTurmaId());
+			if (turma == null) {
+				throw new IllegalArgumentException("Turma do histórico do aluno não encontrada.");
+			}
+
+			for (Disciplina disciplina : disciplinaDAO.listarPorTurma(turmaAluno.getTurmaId())) {
+				disciplinasPorId.putIfAbsent(disciplina.getIdDisciplina(), disciplina);
+			}
+		}
+
+		return new ArrayList<>(disciplinasPorId.values());
+	}
+
+	private String montarDescricaoTurmas(List<TurmaAluno> historicoTurmas, Aluno aluno, TurmaDAO turmaDAO)
+			throws SQLException {
+		Map<Integer, String> turmasPorId = new LinkedHashMap<>();
+
+		if (historicoTurmas.isEmpty()) {
+			Turma turmaAtual = turmaDAO.buscarPorId(aluno.getIdTurma());
+			if (turmaAtual == null) {
+				throw new IllegalArgumentException("Turma do aluno não encontrada.");
+			}
+			return turmaAtual.getDescricaoTurma();
+		}
+
+		for (TurmaAluno turmaAluno : historicoTurmas) {
+			Turma turma = turmaDAO.buscarPorId(turmaAluno.getTurmaId());
+			if (turma == null) {
+				throw new IllegalArgumentException("Turma do histórico do aluno não encontrada.");
+			}
+			turmasPorId.putIfAbsent(turma.getIdTurma(), turma.getDescricaoTurma());
+		}
+
+		if (turmasPorId.size() == 1) {
+			return turmasPorId.values().iterator().next();
+		}
+
+		return "Todas as turmas";
 	}
 
 	private List<HistoricoEscolarItem> montarItensHistorico(List<Disciplina> disciplinas, List<Nota> notasAluno,

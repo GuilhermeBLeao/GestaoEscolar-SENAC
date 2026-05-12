@@ -48,6 +48,10 @@ public class AlunoDAO {
 		validarAlunoNaoNulo(aluno);
 		validarEnderecoNaoNulo(aluno.getEndereco());
 
+		// MELHORIA: avaliar se este metodo deve retornar apenas alunos ativos.
+		// Ele alimenta fluxos de chamada, notas e advertencias; hoje alunos inativos
+		// tambem entram porque o filtro usa somente turma_id.
+		// Implementado: Agora filtra apenas alunos ativos.
 		final String sql = """
 				    INSERT INTO aluno
 				    (nome,
@@ -204,6 +208,7 @@ public class AlunoDAO {
 				    LEFT JOIN endereco_aluno ea
 				    ON ea.aluno_id = a.id_aluno
 				    WHERE a.turma_id = ?
+				      AND a.ativo = true
 				    ORDER BY a.nome;
 				""";
 
@@ -219,6 +224,33 @@ public class AlunoDAO {
 			}
 		}
 		return alunos;
+	}
+
+	// Verifica se um aluno pertence a uma turma específica e está ativo
+	public boolean alunoPertenceTurma(int idAluno, int idTurma) throws SQLException {
+		if (idAluno <= 0) {
+			throw new IllegalArgumentException("ID do aluno inválido.");
+		}
+		if (idTurma <= 0) {
+			throw new IllegalArgumentException("ID da turma inválido.");
+		}
+
+		final String sql = """
+				SELECT 1
+				FROM aluno
+				WHERE id_aluno = ?
+				  AND turma_id = ?
+				  AND ativo = true
+				""";
+
+		try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+			stmt.setInt(1, idAluno);
+			stmt.setInt(2, idTurma);
+
+			try (ResultSet rs = stmt.executeQuery()) {
+				return rs.next();
+			}
+		}
 	}
 
 //Listar todos os alunos - Apenas ativos

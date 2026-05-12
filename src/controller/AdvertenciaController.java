@@ -68,10 +68,15 @@ public class AdvertenciaController {
 
 				validarExistenciasRelacionamentos(new ProfessorDAO(conn), new TurmaDAO(conn),
 						advertencia.getProfessorId(), advertencia.getTurmaId());
+				// Nota: Não há tabela de vínculo professor x turma, então qualquer professor pode advertir qualquer turma.
 
 				for (AdvertenciaItem item : advertencia.getItens()) {
 					if (!itemValidoParaSalvar(item)) {
 						continue;
+					}
+
+					if (!alunoDAO.alunoPertenceTurma(item.getIdAluno(), advertencia.getTurmaId())) {
+						throw new IllegalArgumentException("Aluno ID " + item.getIdAluno() + " não pertence à turma informada ou não está ativo.");
 					}
 
 					validarExistenciaAluno(alunoDAO, item.getIdAluno());
