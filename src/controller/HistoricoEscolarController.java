@@ -121,7 +121,7 @@ public class HistoricoEscolarController {
 		Map<Integer, Disciplina> disciplinasPorId = new LinkedHashMap<>();
 
 		if (historicoTurmas.isEmpty()) {
-			for (Disciplina disciplina : disciplinaDAO.listarPorTurma(aluno.getIdTurma())) {
+			for (Disciplina disciplina : disciplinaDAO.listarPorTurmaIncluindoInativas(aluno.getIdTurma())) {
 				disciplinasPorId.putIfAbsent(disciplina.getIdDisciplina(), disciplina);
 			}
 			return new ArrayList<>(disciplinasPorId.values());
@@ -133,7 +133,7 @@ public class HistoricoEscolarController {
 				throw new IllegalArgumentException("Turma do histórico do aluno não encontrada.");
 			}
 
-			for (Disciplina disciplina : disciplinaDAO.listarPorTurma(turmaAluno.getTurmaId())) {
+			for (Disciplina disciplina : disciplinaDAO.listarPorTurmaIncluindoInativas(turmaAluno.getTurmaId())) {
 				disciplinasPorId.putIfAbsent(disciplina.getIdDisciplina(), disciplina);
 			}
 		}

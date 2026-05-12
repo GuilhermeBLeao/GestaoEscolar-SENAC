@@ -8,16 +8,15 @@ import dao.PresencaDAO;
 import dao.ProfessorDAO;
 import dao.TurmaDAO;
 import database.ConnectionFactory;
-import model.Aluno;
-import model.Chamada;
-import model.ChamadaItem;
-import model.Presenca;
-
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import model.Aluno;
+import model.Chamada;
+import model.ChamadaItem;
+import model.Presenca;
 
 public class ChamadaController {
 
@@ -93,10 +92,6 @@ public class ChamadaController {
                         throw new IllegalArgumentException("Aluno ID " + item.getAlunoId() + " não pertence à turma informada ou não está ativo.");
                     }
 
-                    // MELHORIA: conferir se cada aluno do payload ainda pertence a
-                    // chamada.getTurmaId() e se esta ativo. Como a validacao atual so
-                    // verifica existencia do aluno, um payload montado manualmente pode
-                    // registrar presenca para aluno de outra turma ou inativo.
                     Presenca existente = presencaDAO.buscarPorAlunoDisciplinaData(
                             item.getAlunoId(),
                             chamada.getDisciplinaId(),

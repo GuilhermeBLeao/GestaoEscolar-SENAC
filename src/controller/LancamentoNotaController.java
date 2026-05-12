@@ -7,16 +7,15 @@ import dao.DisciplinaDAO;
 import dao.NotaDAO;
 import dao.TurmaDAO;
 import database.ConnectionFactory;
-import model.Aluno;
-import model.LancamentoNota;
-import model.LancamentoNotaItem;
-import model.Nota;
-
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import model.Aluno;
+import model.LancamentoNota;
+import model.LancamentoNotaItem;
+import model.Nota;
 
 public class LancamentoNotaController {
 
@@ -85,9 +84,6 @@ public class LancamentoNotaController {
                         throw new IllegalArgumentException("Aluno ID " + item.getAlunoId() + " não pertence à turma informada ou não está ativo.");
                     }
 
-                    // MELHORIA: validar se o aluno do item pertence a lancamento.getTurmaId()
-                    // e se continua ativo. Sem isso, um payload alterado fora da tela pode
-                    // gerar nota para aluno de outra turma ou inativo.
                     validarExistenciaAluno(alunoDAO, item.getAlunoId());
 
                     Nota existente = notaDAO.buscarPorAlunoDisciplinaAtividade(

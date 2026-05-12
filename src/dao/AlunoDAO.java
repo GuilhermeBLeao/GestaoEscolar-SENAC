@@ -4,17 +4,15 @@
 package dao;
 
 //Importação das classes de outros pacotes
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 import model.Aluno;
 import model.Endereco;
 import util.ValidaCPF;
 import variaveisEnum.Estado;
 import variaveisEnum.Sexo;
 import variaveisEnum.SituacaoAluno;
-
-//Importação de bibliotecas
-import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
 
 public class AlunoDAO {
 	private final Connection conn;
@@ -48,10 +46,6 @@ public class AlunoDAO {
 		validarAlunoNaoNulo(aluno);
 		validarEnderecoNaoNulo(aluno.getEndereco());
 
-		// MELHORIA: avaliar se este metodo deve retornar apenas alunos ativos.
-		// Ele alimenta fluxos de chamada, notas e advertencias; hoje alunos inativos
-		// tambem entram porque o filtro usa somente turma_id.
-		// Implementado: Agora filtra apenas alunos ativos.
 		final String sql = """
 				    INSERT INTO aluno
 				    (nome,
