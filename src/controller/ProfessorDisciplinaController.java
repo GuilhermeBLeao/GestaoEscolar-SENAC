@@ -117,8 +117,8 @@ public class ProfessorDisciplinaController {
 		executarEmTransacao(conn -> {
 			//Cria um controller de disciplina para realizar o cadastro
 			DisciplinaController disciplinaCtrl = new DisciplinaController();
-			//Chama o método de salvar disciplina do controller
-			disciplinaCtrl.salvarDisciplina(disciplina);
+			//Chama o método de salvar disciplina do controller usando a mesma conexão/transação
+			disciplinaCtrl.salvarDisciplina(conn, disciplina);
 			//Retorna nulo pois a operação não retorna valor
 			return null;
 		}, "Erro ao cadastrar disciplina.");
