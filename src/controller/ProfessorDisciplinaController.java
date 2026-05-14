@@ -3,17 +3,17 @@
 
 package controller;
 
-import dao.ProfessorDisciplinaDAO;
-import dao.ProfessorDAO;
 import dao.DisciplinaDAO;
+import dao.ProfessorDAO;
+import dao.ProfessorDisciplinaDAO;
 import database.ConnectionFactory;
-import model.ProfessorDisciplina;
-import model.Professor;
-import model.Disciplina;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
+import model.Disciplina;
+import model.Professor;
+import model.ProfessorDisciplina;
 
 public class ProfessorDisciplinaController {
 
@@ -182,7 +182,7 @@ public class ProfessorDisciplinaController {
 	}
 
 	//Método público que desvincila um professor de uma disciplina (exclusão lógica)
-	public boolean desvinularProfessorDisciplina(int idProfessorDisciplina) {
+	public boolean desvincularProfessorDisciplina(int idProfessorDisciplina) {
 		//Valida se o ID é válido
 		if (idProfessorDisciplina <= 0)
 			throw new IllegalArgumentException("ID da relação Professor-Disciplina inválido.");
