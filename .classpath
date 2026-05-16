@@ -6,27 +6,27 @@
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="src" path="src"/>
-	<classpathentry kind="lib" path="resources/jackson-annotations-2.16.0.jar">
+	<classpathentry kind="lib" path="resources/JAR/jackson-annotations-2.16.0.jar">
 		<attributes>
 			<attribute name="module" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="resources/jackson-core-2.16.0.jar">
+	<classpathentry kind="lib" path="resources/JAR/jackson-core-2.16.0.jar">
 		<attributes>
 			<attribute name="module" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="resources/jackson-databind-2.16.0.jar">
+	<classpathentry kind="lib" path="resources/JAR/jackson-databind-2.16.0.jar">
 		<attributes>
 			<attribute name="module" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="resources/jbcrypt-0.4.jar">
+	<classpathentry kind="lib" path="resources/JAR/jbcrypt-0.4.jar">
 		<attributes>
 			<attribute name="module" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="resources/sqlite-jdbc-3.51.3.0.jar">
+	<classpathentry kind="lib" path="resources/JAR/sqlite-jdbc-3.51.3.0.jar">
 		<attributes>
 			<attribute name="module" value="true"/>
 		</attributes>
