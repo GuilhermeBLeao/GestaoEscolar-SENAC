@@ -94,12 +94,16 @@ public class DisciplinaController {
 		normalizar(disciplina);
 		validarCamposBase(disciplina);
 		executarEmTransacao(conn -> {
-			DisciplinaDAO dao = new DisciplinaDAO(conn);
-			if (dao.existeCodigo(disciplina.getCodigo()))
-				throw new IllegalArgumentException("Já existe disciplina cadastrada com este código.");
-			dao.inserir(disciplina);
+			salvarDisciplina(conn, disciplina);
 			return null;
 		}, "Erro ao salvar disciplina.");
+	}
+
+	void salvarDisciplina(Connection conn, Disciplina disciplina) throws SQLException {
+		DisciplinaDAO dao = new DisciplinaDAO(conn);
+		if (dao.existeCodigo(disciplina.getCodigo()))
+			throw new IllegalArgumentException("Já existe disciplina cadastrada com este código.");
+		dao.inserir(disciplina);
 	}
 
 	// Atualiza uma disciplina ativa, mantendo o código original imutável.

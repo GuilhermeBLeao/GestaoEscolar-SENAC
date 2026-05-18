@@ -3,17 +3,13 @@
 package controller;
 
 import dao.AlunoDAO;
+import dao.GeradorMatricula;
 import dao.PaisAlunoDAO;
-import dao.TurmaAlunoDAO;
 import dao.TurmaDAO;
 import database.ConnectionFactory;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.time.LocalDate;
-import java.util.List;
 import model.Aluno;
 import model.Endereco;
-import model.TurmaAluno;
+import variaveisEnum.SituacaoAluno;
 import util.ValidaCEP;
 import util.ValidaCPF;
 import util.ValidaCidade;
@@ -21,362 +17,423 @@ import util.ValidaEmail;
 import util.ValidaNome;
 import util.ValidaTelefone;
 
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.util.List;
+
 public class AlunoController {
-	@FunctionalInterface
-	private interface AcaoTransacional<T> {
-		T executar(Connection conn) throws SQLException;
-	}
 
-	private <T> T executarEmTransacao(AcaoTransacional<T> acao, String mensagemOperacao) {
-		try (Connection conn = ConnectionFactory.getConnection()) {
-			conn.setAutoCommit(false);
-			try {
-				T r = acao.executar(conn);
-				conn.commit();
-				return r;
-			} catch (IllegalArgumentException e) {
-				try {
-					conn.rollback();
-				} catch (SQLException ex) {
-					e.addSuppressed(ex);
-				}
-				throw e;
-			} catch (SQLException | RuntimeException e) {
-				try {
-					conn.rollback();
-				} catch (SQLException ex) {
-					e.addSuppressed(ex);
-				}
-				throw new RuntimeException(mensagemOperacao, e);
-			}
-		} catch (IllegalArgumentException e) {
-			throw e;
-		} catch (Exception e) {
-			throw new RuntimeException("Erro ao obter conexão com o banco de dados.", e);
-		}
-	}
+    @FunctionalInterface
+    private interface AcaoTransacional<T> {
+        T executar(Connection conn) throws SQLException;
+    }
 
-	private void validarNaoNulo(Aluno aluno) {
-		if (aluno == null)
-			throw new IllegalArgumentException("Aluno não pode ser nulo.");
-	}
+    private <T> T executarEmTransacao(AcaoTransacional<T> acao, String mensagemOperacao) {
+        try (Connection conn = ConnectionFactory.getConnection()) {
+            conn.setAutoCommit(false);
 
-	private String tratarTexto(String v) {
-		return v == null ? null : v.trim();
-	}
+            try {
+                T resultado = acao.executar(conn);
+                conn.commit();
+                return resultado;
 
-	private String normalizarCpf(String v) {
-		String t = tratarTexto(v);
-		return t == null ? null : t.replaceAll("\\D", "");
-	}
+            } catch (IllegalArgumentException e) {
+                try {
+                    conn.rollback();
+                } catch (SQLException rollbackEx) {
+                    e.addSuppressed(rollbackEx);
+                }
+                throw e;
 
-	private String normalizarEmail(String v) {
-		String t = tratarTexto(v);
-		return t == null ? null : t.toLowerCase();
-	}
+            } catch (SQLException | RuntimeException e) {
+                try {
+                    conn.rollback();
+                } catch (SQLException rollbackEx) {
+                    e.addSuppressed(rollbackEx);
+                }
 
-	private String normalizarTelefone(String v) {
-		String t = tratarTexto(v);
-		return t == null ? null : t.replaceAll("\\D", "");
-	}
+                throw new RuntimeException(mensagemOperacao, e);
+            }
 
-	private String normalizarCep(String v) {
-		String t = tratarTexto(v);
-		return t == null ? null : t.replaceAll("\\D", "");
-	}
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Erro ao obter conexÃ£o com o banco de dados.", e);
+        }
+    }
 
-	private void normalizar(Aluno a) {
-		// CPF não é setado novamente aqui porque Aluno.setCpf() é imutável após
-		// definido.
-		// O próprio setter do model já remove pontuação quando o CPF é definido.
-		a.setNome(tratarTexto(a.getNome()));
-		a.setEmail(normalizarEmail(a.getEmail()));
-		a.setTelefone(normalizarTelefone(a.getTelefone()));
-		a.setMatricula(tratarTexto(a.getMatricula()));
-		a.setRg(tratarTexto(a.getRg()));
-		a.setObsSaude(tratarTexto(a.getObsSaude()));
-		Endereco e = a.getEndereco();
-		if (e != null) {
-			e.setRua(tratarTexto(e.getRua()));
-			e.setNumero(tratarTexto(e.getNumero()));
-			e.setComplemento(tratarTexto(e.getComplemento()));
-			e.setBairro(tratarTexto(e.getBairro()));
-			e.setCidade(tratarTexto(e.getCidade()));
-			e.setCep(normalizarCep(e.getCep()));
-		}
-	}
+    private void validarAlunoNaoNulo(Aluno aluno) {
+        if (aluno == null) {
+            throw new IllegalArgumentException("Aluno nÃ£o pode ser nulo.");
+        }
+    }
 
-	private void validarCamposBase(Aluno a) {
-		ValidaNome.validar(a.getNome());
-		if (a.getEmail() == null || !ValidaEmail.isValido(a.getEmail()))
-			throw new IllegalArgumentException("Email do aluno inválido.");
-		if (a.getCpf() == null || !ValidaCPF.isValido(a.getCpf()))
-			throw new IllegalArgumentException("CPF do aluno inválido.");
-		if (a.getMatricula() == null || a.getMatricula().isBlank())
-			throw new IllegalArgumentException("Matrícula do aluno é obrigatória.");
-		if (!ValidaTelefone.isValido(a.getTelefone()))
-			throw new IllegalArgumentException("Telefone do aluno inválido.");
-		if (a.getSituacao() == null)
-			throw new IllegalArgumentException("Situação do aluno é obrigatória.");
-		if (a.getSexo() == null)
-			throw new IllegalArgumentException("Sexo do aluno é obrigatório.");
-		if (a.getDataNascimento() == null || a.getDataNascimento().isAfter(LocalDate.now()))
-			throw new IllegalArgumentException("Data de nascimento do aluno inválida.");
-		if (a.getDataCadastro() == null || a.getDataCadastro().isAfter(LocalDate.now()))
-			throw new IllegalArgumentException("Data de cadastro do aluno inválida.");
-		if (a.getIdPais() <= 0)
-			throw new IllegalArgumentException("ID de pais/responsáveis é obrigatório.");
-		if (a.getIdTurma() <= 0)
-			throw new IllegalArgumentException("ID da turma é obrigatório.");
-		validarEndereco(a.getEndereco());
-	}
+    private void normalizarAluno(Aluno aluno) {
+        aluno.setNome(tratarTexto(aluno.getNome()));
+        aluno.setEmail(normalizarEmail(aluno.getEmail()));
+        aluno.setTelefone(normalizarTelefone(aluno.getTelefone()));
+        // Correcao: o CPF ja e normalizado quando entra no model e o setter e imutavel depois disso.
+        // Reaplicar setCpf aqui fazia updates e ate cadastros falharem sem necessidade.
+        aluno.setRg(tratarTexto(aluno.getRg()));
+        aluno.setObsSaude(tratarTexto(aluno.getObsSaude()));
 
-	private void validarEndereco(Endereco e) {
-		if (e == null)
-			throw new IllegalArgumentException("Endereço do aluno é obrigatório.");
-		ValidaCidade.validar(e.getCidade());
-		if (!ValidaCEP.isValido(e.getCep()))
-			throw new IllegalArgumentException("CEP do aluno inválido.");
-		if (e.getEstado() == null)
-			throw new IllegalArgumentException("Estado do endereço é obrigatório.");
-	}
+        Endereco endereco = aluno.getEndereco();
+        if (endereco != null) {
+            endereco.setRua(tratarTexto(endereco.getRua()));
+            endereco.setNumero(tratarTexto(endereco.getNumero()));
+            endereco.setComplemento(tratarTexto(endereco.getComplemento()));
+            endereco.setBairro(tratarTexto(endereco.getBairro()));
+            endereco.setCidade(tratarTexto(endereco.getCidade()));
+            endereco.setCep(normalizarCep(endereco.getCep()));
+        }
+    }
 
-	private void validarImutaveis(Aluno atual, Aluno banco) {
-		if (!banco.getCpf().equals(atual.getCpf()))
-			throw new IllegalArgumentException("CPF do aluno não pode ser alterado após o cadastro.");
-		if (!banco.getMatricula().equals(atual.getMatricula()))
-			throw new IllegalArgumentException("Matrícula do aluno não pode ser alterada após o cadastro.");
-	}
+    private void validarParaCadastro(Aluno aluno) {
+        validarCamposBase(aluno);
+        validarCamposControladosPeloSistemaNoCadastro(aluno);
+    }
 
-	private void validarRelacionamentos(Connection conn, Aluno a) throws SQLException {
-		if (new PaisAlunoDAO(conn).buscarPorId(a.getIdPais()) == null)
-			throw new IllegalArgumentException("Pais/responsáveis informados não existem.");
-		if (new TurmaDAO(conn).buscarPorId(a.getIdTurma()) == null)
-			throw new IllegalArgumentException("Turma informada não existe.");
-	}
+    private void validarParaAtualizacao(Aluno alunoAtualizado, Aluno alunoBanco) {
+        validarCamposBase(alunoAtualizado);
+        validarCpfImutavel(alunoAtualizado, alunoBanco);
+        validarDataCadastroImutavel(alunoAtualizado, alunoBanco);
+        validarMatriculaImutavel(alunoAtualizado, alunoBanco);
+    }
 
-	private Aluno mesclar(Aluno b, Aluno a) {
-		b.setNome(a.getNome());
-		b.setEmail(a.getEmail());
-		b.setSituacao(a.getSituacao());
-		b.setSexo(a.getSexo());
-		b.setTelefone(a.getTelefone());
-		b.setRg(a.getRg());
-		b.setObsSaude(a.getObsSaude());
-		b.setDataNascimento(a.getDataNascimento());
-		b.setIdPais(a.getIdPais());
-		b.setIdTurma(a.getIdTurma());
-		b.setEndereco(a.getEndereco());
-		return b;
-	}
+    private void validarCamposBase(Aluno aluno) {
+        ValidaNome.validar(aluno.getNome());
 
-	private void registrarTurmaAtual(TurmaAlunoDAO turmaAlunoDAO, Aluno aluno, LocalDate dataEntrada)
-			throws SQLException {
-		TurmaAluno turmaAluno = new TurmaAluno();
-		turmaAluno.setAlunoId(aluno.getIdAluno());
-		turmaAluno.setTurmaId(aluno.getIdTurma());
-		turmaAluno.setDataEntrada(dataEntrada);
-		turmaAluno.setAtivo(true);
-		turmaAlunoDAO.inserir(turmaAluno);
-	}
+        if (!ValidaEmail.isValido(aluno.getEmail())) {
+            throw new IllegalArgumentException("Email do aluno invÃ¡lido.");
+        }
 
-	private void registrarTurmaEncerrada(TurmaAlunoDAO turmaAlunoDAO, int alunoId, int turmaId, LocalDate dataEntrada,
-			LocalDate dataSaida) throws SQLException {
-		TurmaAluno turmaAluno = new TurmaAluno();
-		turmaAluno.setAlunoId(alunoId);
-		turmaAluno.setTurmaId(turmaId);
-		turmaAluno.setDataEntrada(dataEntrada == null || dataEntrada.isAfter(dataSaida) ? dataSaida : dataEntrada);
-		turmaAluno.setDataSaida(dataSaida);
-		turmaAluno.setAtivo(false);
-		turmaAlunoDAO.inserir(turmaAluno);
-	}
+        if (!ValidaTelefone.isValido(aluno.getTelefone())) {
+            throw new IllegalArgumentException("Telefone do aluno invÃ¡lido.");
+        }
 
-	private void encerrarTurmaAtualOuRegistrarLegado(TurmaAlunoDAO turmaAlunoDAO, Aluno aluno, int turmaAnterior,
-			LocalDate dataSaida) throws SQLException {
-		boolean encerrouHistoricoAtual = turmaAlunoDAO.encerrarTurmaAtual(aluno.getIdAluno(), dataSaida);
-		if (!encerrouHistoricoAtual) {
-			registrarTurmaEncerrada(turmaAlunoDAO, aluno.getIdAluno(), turmaAnterior, aluno.getDataCadastro(),
-					dataSaida);
-		}
-	}
+        if (!ValidaCPF.isValido(aluno.getCpf())) {
+            throw new IllegalArgumentException("CPF do aluno invÃ¡lido.");
+        }
 
-	private void informarSeInativo(Aluno a) {
-		if (a != null && !a.isAtivo())
-			System.out.println("ATENÇÃO: aluno encontrado, porém está inativo.");
-	}
+        if (aluno.getDataNascimento() == null) {
+            throw new IllegalArgumentException("Data de nascimento Ã© obrigatÃ³ria.");
+        }
 
-	// Salva um novo aluno após validar dados, vínculos, CPF e matrícula únicos.
-	public void salvarAluno(Aluno aluno) {
-		validarNaoNulo(aluno);
-		normalizar(aluno);
-		validarCamposBase(aluno);
-		executarEmTransacao(conn -> {
-			AlunoDAO dao = new AlunoDAO(conn);
-			if (dao.existeCpf(aluno.getCpf()))
-				throw new IllegalArgumentException("Já existe aluno cadastrado com este CPF.");
-			if (dao.buscarPorMatricula(aluno.getMatricula()) != null)
-				throw new IllegalArgumentException("Já existe aluno cadastrado com esta matrícula.");
-			validarRelacionamentos(conn, aluno);
-			dao.inserir(aluno);
-			registrarTurmaAtual(new TurmaAlunoDAO(conn), aluno, aluno.getDataCadastro());
-			return null;
-		}, "Erro ao salvar aluno.");
-	}
+        if (aluno.getDataNascimento().isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("Data de nascimento nÃ£o pode ser futura.");
+        }
 
-	// Atualiza um aluno ativo, mantendo CPF e matrícula imutáveis.
-	public void atualizarAluno(Aluno alunoAtualizado) {
-		validarNaoNulo(alunoAtualizado);
-		if (alunoAtualizado.getIdAluno() <= 0)
-			throw new IllegalArgumentException("ID do aluno inválido.");
-		normalizar(alunoAtualizado);
-		validarCamposBase(alunoAtualizado);
-		executarEmTransacao(conn -> {
-			AlunoDAO dao = new AlunoDAO(conn);
-			Aluno banco = dao.buscarPorId(alunoAtualizado.getIdAluno());
-			if (banco == null)
-				throw new IllegalArgumentException("Aluno não encontrado.");
-			if (!banco.isAtivo())
-				throw new IllegalArgumentException("Não é possível atualizar aluno inativo.");
-			validarImutaveis(alunoAtualizado, banco);
-			validarRelacionamentos(conn, alunoAtualizado);
-			int turmaAnterior = banco.getIdTurma();
-			LocalDate dataCadastro = banco.getDataCadastro();
-			dao.atualizar(mesclar(banco, alunoAtualizado));
-			if (turmaAnterior != alunoAtualizado.getIdTurma()) {
-				TurmaAlunoDAO turmaAlunoDAO = new TurmaAlunoDAO(conn);
-				Aluno alunoAnterior = new Aluno();
-				alunoAnterior.setIdAluno(alunoAtualizado.getIdAluno());
-				alunoAnterior.setIdTurma(turmaAnterior);
-				alunoAnterior.setDataCadastro(dataCadastro);
-				encerrarTurmaAtualOuRegistrarLegado(turmaAlunoDAO, alunoAnterior, turmaAnterior, LocalDate.now());
-				registrarTurmaAtual(turmaAlunoDAO, alunoAtualizado, LocalDate.now());
-			}
-			return null;
-		}, "Erro ao atualizar aluno.");
-	}
+        if (aluno.getIdPais() <= 0) {
+            throw new IllegalArgumentException("ID dos pais/responsÃ¡veis Ã© obrigatÃ³rio.");
+        }
 
-	// Realiza exclusão lógica do aluno, inativando o cadastro no banco.
-	public boolean excluirAluno(int idAluno) {
-		if (idAluno <= 0)
-			throw new IllegalArgumentException("ID do aluno inválido.");
-		return executarEmTransacao(conn -> {
-			AlunoDAO dao = new AlunoDAO(conn);
-			Aluno aluno = dao.buscarPorId(idAluno);
-			if (aluno == null)
-				throw new IllegalArgumentException("Aluno não encontrado.");
-			boolean inativou = dao.inativar(idAluno);
-			encerrarTurmaAtualOuRegistrarLegado(new TurmaAlunoDAO(conn), aluno, aluno.getIdTurma(), LocalDate.now());
-			return inativou;
-		}, "Erro ao excluir aluno.");
-	}
+        if (aluno.getIdTurma() <= 0) {
+            throw new IllegalArgumentException("ID da turma Ã© obrigatÃ³rio.");
+        }
 
-	// Reativa um aluno previamente inativado.
-	public boolean reativarAluno(int idAluno) {
-		if (idAluno <= 0)
-			throw new IllegalArgumentException("ID do aluno inválido.");
-		return executarEmTransacao(conn -> {
-			AlunoDAO dao = new AlunoDAO(conn);
-			Aluno aluno = dao.buscarPorId(idAluno);
-			if (aluno == null)
-				throw new IllegalArgumentException("Aluno não encontrado.");
-			boolean reativou = dao.reativar(idAluno);
-			TurmaAlunoDAO turmaAlunoDAO = new TurmaAlunoDAO(conn);
-			turmaAlunoDAO.encerrarTurmaAtual(idAluno, LocalDate.now());
-			registrarTurmaAtual(turmaAlunoDAO, aluno, LocalDate.now());
-			return reativou;
-		}, "Erro ao reativar aluno.");
-	}
+        validarEndereco(aluno.getEndereco());
+    }
 
-	// Busca aluno por ID, retornando também inativos e avisando quando o cadastro
-	// estiver inativo.
-	public Aluno buscarAlunoPorId(int idAluno) {
-		if (idAluno <= 0)
-			throw new IllegalArgumentException("ID do aluno inválido.");
-		try (Connection conn = ConnectionFactory.getConnection()) {
-			Aluno a = new AlunoDAO(conn).buscarPorId(idAluno);
-			if (a == null)
-				throw new IllegalArgumentException("Aluno não encontrado.");
-			informarSeInativo(a);
-			return a;
-		} catch (SQLException e) {
-			throw new RuntimeException("Erro ao buscar aluno por ID.", e);
-		}
-	}
+    private void validarCamposControladosPeloSistemaNoCadastro(Aluno aluno) {
+        if (aluno.getDataCadastro() != null) {
+            throw new IllegalArgumentException("Data de cadastro Ã© controlada pelo sistema.");
+        }
 
-	// Busca aluno por CPF, retornando também inativos e avisando quando o cadastro
-	// estiver inativo.
-	public Aluno buscarAlunoPorCpf(String cpf) {
-		String c = normalizarCpf(cpf);
-		if (c == null || !ValidaCPF.isValido(c))
-			throw new IllegalArgumentException("CPF do aluno inválido.");
-		try (Connection conn = ConnectionFactory.getConnection()) {
-			Aluno a = new AlunoDAO(conn).buscarPorCPF(c);
-			if (a == null)
-				throw new IllegalArgumentException("Aluno não encontrado.");
-			informarSeInativo(a);
-			return a;
-		} catch (SQLException e) {
-			throw new RuntimeException("Erro ao buscar aluno por CPF.", e);
-		}
-	}
+        if (aluno.getMatricula() != null && !aluno.getMatricula().isBlank()) {
+            throw new IllegalArgumentException("MatrÃ­cula Ã© gerada automaticamente pelo sistema.");
+        }
+    }
 
-	// Busca aluno por matrícula, retornando também inativos e avisando quando o
-	// cadastro estiver inativo.
-	public Aluno buscarAlunoPorMatricula(String matricula) {
-		String m = tratarTexto(matricula);
-		if (m == null || m.isBlank())
-			throw new IllegalArgumentException("Matrícula é obrigatória.");
-		try (Connection conn = ConnectionFactory.getConnection()) {
-			Aluno a = new AlunoDAO(conn).buscarPorMatricula(m);
-			if (a == null)
-				throw new IllegalArgumentException("Aluno não encontrado.");
-			informarSeInativo(a);
-			return a;
-		} catch (SQLException e) {
-			throw new RuntimeException("Erro ao buscar aluno por matrícula.", e);
-		}
-	}
+    private void validarCpfImutavel(Aluno alunoAtualizado, Aluno alunoBanco) {
+        if (!alunoBanco.getCpf().equals(alunoAtualizado.getCpf())) {
+            throw new IllegalArgumentException("CPF do aluno nÃ£o pode ser alterado apÃ³s o cadastro.");
+        }
+    }
 
-	// Lista todos os alunos, ativos e inativos.
-	public List<Aluno> listarAlunos() {
-		return listarTodosAlunos();
-	}
+    private void validarDataCadastroImutavel(Aluno alunoAtualizado, Aluno alunoBanco) {
+        if (alunoAtualizado.getDataCadastro() != null
+                && !alunoAtualizado.getDataCadastro().equals(alunoBanco.getDataCadastro())) {
+            throw new IllegalArgumentException("Data de cadastro nÃ£o pode ser alterada.");
+        }
+    }
 
-	// Lista todos os alunos, ativos e inativos.
-	public List<Aluno> listarTodosAlunos() {
-		try (Connection conn = ConnectionFactory.getConnection()) {
-			return new AlunoDAO(conn).listarTodos();
-		} catch (SQLException e) {
-			throw new RuntimeException("Erro ao listar alunos.", e);
-		}
-	}
+    private void validarMatriculaImutavel(Aluno alunoAtualizado, Aluno alunoBanco) {
+        if (alunoAtualizado.getMatricula() != null
+                && !alunoAtualizado.getMatricula().equals(alunoBanco.getMatricula())) {
+            throw new IllegalArgumentException("MatrÃ­cula nÃ£o pode ser alterada.");
+        }
+    }
 
-	// Lista somente alunos ativos.
-	public List<Aluno> listarAlunosAtivos() {
-		try (Connection conn = ConnectionFactory.getConnection()) {
-			return new AlunoDAO(conn).listarAtivos();
-		} catch (SQLException e) {
-			throw new RuntimeException("Erro ao listar alunos ativos.", e);
-		}
-	}
+    private void validarEndereco(Endereco endereco) {
+        if (endereco == null) {
+            throw new IllegalArgumentException("EndereÃ§o Ã© obrigatÃ³rio.");
+        }
 
-	// Lista somente alunos inativos.
-	public List<Aluno> listarAlunosInativos() {
-		try (Connection conn = ConnectionFactory.getConnection()) {
-			return new AlunoDAO(conn).listarInativos();
-		} catch (SQLException e) {
-			throw new RuntimeException("Erro ao listar alunos inativos.", e);
-		}
-	}
+        ValidaCidade.validar(endereco.getCidade());
 
-	// Lista alunos vinculados a uma turma.
-	public List<Aluno> listarAlunosPorTurma(int idTurma) {
-		if (idTurma <= 0)
-			throw new IllegalArgumentException("ID da turma inválido.");
-		try (Connection conn = ConnectionFactory.getConnection()) {
-			return new AlunoDAO(conn).listarPorTurma(idTurma);
-		} catch (SQLException e) {
-			throw new RuntimeException("Erro ao listar alunos por turma.", e);
-		}
-	}
+        if (!ValidaCEP.isValido(endereco.getCep())) {
+            throw new IllegalArgumentException("CEP invÃ¡lido.");
+        }
+    }
+
+    private void validarMatriculaParaBusca(String matricula) {
+        if (matricula == null || matricula.isBlank()) {
+            throw new IllegalArgumentException("MatrÃ­cula Ã© obrigatÃ³ria para busca.");
+        }
+
+        if (!matricula.matches("\\d{10}")) {
+            throw new IllegalArgumentException("MatrÃ­cula deve conter exatamente 10 dÃ­gitos numÃ©ricos.");
+        }
+    }
+
+    private void validarReferenciasRelacionadas(Connection conn, Aluno aluno) throws SQLException {
+        PaisAlunoDAO paisAlunoDAO = new PaisAlunoDAO(conn);
+        TurmaDAO turmaDAO = new TurmaDAO(conn);
+
+        // CorreÃ§Ã£o: alÃ©m de validar IDs > 0, agora confirmamos que os registros existem antes de persistir.
+        if (paisAlunoDAO.buscarPorId(aluno.getIdPais()) == null) {
+            throw new IllegalArgumentException("Pais/ResponsÃ¡veis informados nÃ£o foram encontrados.");
+        }
+
+        // CorreÃ§Ã£o: evita gravar aluno apontando para uma turma inexistente e falhar sÃ³ no banco.
+        if (turmaDAO.buscarPorId(aluno.getIdTurma()) == null) {
+            throw new IllegalArgumentException("Turma informada nÃ£o foi encontrada.");
+        }
+    }
+
+    private Aluno mesclarDadosPermitidos(Aluno alunoBanco, Aluno alunoAtualizado) {
+        alunoBanco.setNome(alunoAtualizado.getNome());
+        alunoBanco.setEmail(alunoAtualizado.getEmail());
+        alunoBanco.setSituacao(alunoAtualizado.getSituacao());
+        alunoBanco.setSexo(alunoAtualizado.getSexo());
+        alunoBanco.setTelefone(alunoAtualizado.getTelefone());
+        alunoBanco.setRg(alunoAtualizado.getRg());
+        alunoBanco.setObsSaude(alunoAtualizado.getObsSaude());
+        alunoBanco.setDataNascimento(alunoAtualizado.getDataNascimento());
+        alunoBanco.setIdPais(alunoAtualizado.getIdPais());
+        alunoBanco.setIdTurma(alunoAtualizado.getIdTurma());
+
+        atualizarOuCriarEndereco(alunoBanco, alunoAtualizado);
+
+        return alunoBanco;
+    }
+
+    private void atualizarOuCriarEndereco(Aluno alunoBanco, Aluno alunoAtualizado) {
+        Endereco enderecoAtualizado = alunoAtualizado.getEndereco();
+        if (enderecoAtualizado == null) {
+            throw new IllegalArgumentException("EndereÃ§o atualizado Ã© obrigatÃ³rio.");
+        }
+
+        Endereco enderecoBanco = alunoBanco.getEndereco();
+
+        if (enderecoBanco == null) {
+            enderecoBanco = new Endereco();
+            alunoBanco.setEndereco(enderecoBanco);
+        }
+
+        enderecoBanco.setRua(tratarTexto(enderecoAtualizado.getRua()));
+        enderecoBanco.setNumero(tratarTexto(enderecoAtualizado.getNumero()));
+        enderecoBanco.setComplemento(tratarTexto(enderecoAtualizado.getComplemento()));
+        enderecoBanco.setBairro(tratarTexto(enderecoAtualizado.getBairro()));
+        enderecoBanco.setCidade(tratarTexto(enderecoAtualizado.getCidade()));
+        enderecoBanco.setEstado(enderecoAtualizado.getEstado());
+        enderecoBanco.setCep(normalizarCep(enderecoAtualizado.getCep()));
+    }
+
+    private String tratarTexto(String valor) {
+        return valor == null ? null : valor.trim();
+    }
+
+    private String normalizarEmail(String email) {
+        String valor = tratarTexto(email);
+        return valor == null ? null : valor.toLowerCase();
+    }
+
+    private String normalizarCpf(String cpf) {
+        String valor = tratarTexto(cpf);
+        return valor == null ? null : valor.replaceAll("\\D", "");
+    }
+
+    private String normalizarTelefone(String telefone) {
+        String valor = tratarTexto(telefone);
+        return valor == null ? null : valor.replaceAll("\\D", "");
+    }
+
+    private String normalizarCep(String cep) {
+        String valor = tratarTexto(cep);
+        return valor == null ? null : valor.replaceAll("\\D", "");
+    }
+
+    public void matricularAluno(Aluno aluno) {
+        salvarAluno(aluno);
+    }
+
+    public void transferirParaTurma(int idAluno, int novaIdTurma) {
+        if (idAluno <= 0)
+            throw new IllegalArgumentException("ID do aluno invÃ¡lido.");
+        if (novaIdTurma <= 0)
+            throw new IllegalArgumentException("ID da nova turma invÃ¡lido.");
+
+        executarEmTransacao(conn -> {
+            AlunoDAO alunoDAO = new AlunoDAO(conn);
+            TurmaDAO turmaDAO = new TurmaDAO(conn);
+
+            Aluno aluno = alunoDAO.buscarPorId(idAluno);
+            if (aluno == null)
+                throw new IllegalArgumentException("Aluno nÃ£o encontrado.");
+
+            if (aluno.getSituacao() != SituacaoAluno.ATIVO)
+                throw new IllegalArgumentException("Somente alunos com situaÃ§Ã£o ATIVO podem ser transferidos de turma.");
+
+            if (aluno.getIdTurma() == novaIdTurma)
+                throw new IllegalArgumentException("O aluno jÃ¡ pertence Ã  turma informada.");
+
+            if (turmaDAO.buscarPorId(novaIdTurma) == null)
+                throw new IllegalArgumentException("Turma de destino nÃ£o encontrada.");
+
+            alunoDAO.transferirTurma(idAluno, novaIdTurma);
+            return null;
+        }, "Erro ao transferir aluno de turma.");
+    }
+
+    public void transferirExterno(int idAluno) {
+        if (idAluno <= 0)
+            throw new IllegalArgumentException("ID do aluno invÃ¡lido.");
+
+        executarEmTransacao(conn -> {
+            AlunoDAO alunoDAO = new AlunoDAO(conn);
+
+            Aluno aluno = alunoDAO.buscarPorId(idAluno);
+            if (aluno == null)
+                throw new IllegalArgumentException("Aluno nÃ£o encontrado.");
+
+            if (aluno.getSituacao() == SituacaoAluno.TRANSFERIDO)
+                throw new IllegalArgumentException("Aluno jÃ¡ possui situaÃ§Ã£o TRANSFERIDO.");
+
+            alunoDAO.atualizarSituacao(idAluno, SituacaoAluno.TRANSFERIDO);
+            return null;
+        }, "Erro ao registrar transferÃªncia externa do aluno.");
+    }
+
+    public void salvarAluno(Aluno aluno) {
+        validarAlunoNaoNulo(aluno);
+        normalizarAluno(aluno);
+        validarParaCadastro(aluno);
+
+        executarEmTransacao(conn -> {
+            AlunoDAO alunoDAO = new AlunoDAO(conn);
+
+            if (alunoDAO.existeCpf(aluno.getCpf())) {
+                throw new IllegalArgumentException("JÃ¡ existe aluno cadastrado com este CPF.");
+            }
+
+            validarReferenciasRelacionadas(conn, aluno);
+
+            aluno.setDataCadastro(LocalDate.now());
+            aluno.setMatricula(GeradorMatricula.gerar(conn));
+
+            alunoDAO.inserir(aluno);
+            return null;
+        }, "Erro ao salvar aluno.");
+    }
+
+    public void atualizarAluno(Aluno alunoAtualizado) {
+        validarAlunoNaoNulo(alunoAtualizado);
+
+        if (alunoAtualizado.getIdAluno() <= 0) {
+            throw new IllegalArgumentException("ID do aluno invÃ¡lido.");
+        }
+
+        normalizarAluno(alunoAtualizado);
+
+        executarEmTransacao(conn -> {
+            AlunoDAO alunoDAO = new AlunoDAO(conn);
+
+            Aluno alunoBanco = alunoDAO.buscarPorId(alunoAtualizado.getIdAluno());
+            if (alunoBanco == null) {
+                throw new IllegalArgumentException("Aluno nÃ£o encontrado.");
+            }
+
+            validarParaAtualizacao(alunoAtualizado, alunoBanco);
+            validarReferenciasRelacionadas(conn, alunoAtualizado);
+
+            Aluno alunoParaSalvar = mesclarDadosPermitidos(alunoBanco, alunoAtualizado);
+            alunoDAO.atualizar(alunoParaSalvar);
+            return null;
+        }, "Erro ao atualizar aluno.");
+    }
+
+    public boolean excluirAluno(int idAluno) {
+        if (idAluno <= 0) {
+            throw new IllegalArgumentException("ID do aluno invÃ¡lido.");
+        }
+
+        return executarEmTransacao(conn -> {
+            AlunoDAO alunoDAO = new AlunoDAO(conn);
+
+            Aluno alunoExistente = alunoDAO.buscarPorId(idAluno);
+            if (alunoExistente == null) {
+                throw new IllegalArgumentException("Aluno nÃ£o encontrado.");
+            }
+
+            // CorreÃ§Ã£o: a exclusÃ£o agora Ã© lÃ³gica, preservando histÃ³rico e impedindo delete fÃ­sico acidental.
+            return alunoDAO.excluir(idAluno);
+        }, "Erro ao excluir aluno.");
+    }
+
+    public Aluno buscarAlunoPorId(int idAluno) {
+        if (idAluno <= 0) {
+            throw new IllegalArgumentException("ID do aluno invÃ¡lido.");
+        }
+
+        try (Connection conn = ConnectionFactory.getConnection()) {
+            AlunoDAO alunoDAO = new AlunoDAO(conn);
+            return alunoDAO.buscarPorId(idAluno);
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao buscar aluno por ID.", e);
+        }
+    }
+
+    public Aluno buscarAlunoPorCpf(String cpf) {
+        String cpfTratado = normalizarCpf(cpf);
+
+        if (cpfTratado == null || cpfTratado.isBlank()) {
+            throw new IllegalArgumentException("CPF Ã© obrigatÃ³rio para busca.");
+        }
+
+        if (!ValidaCPF.isValido(cpfTratado)) {
+            throw new IllegalArgumentException("CPF invÃ¡lido.");
+        }
+
+        try (Connection conn = ConnectionFactory.getConnection()) {
+            AlunoDAO alunoDAO = new AlunoDAO(conn);
+            return alunoDAO.buscarPorCpf(cpfTratado);
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao buscar aluno por CPF.", e);
+        }
+    }
+
+    public Aluno buscarAlunoPorMatricula(String matricula) {
+        String matriculaTratada = tratarTexto(matricula);
+        validarMatriculaParaBusca(matriculaTratada);
+
+        try (Connection conn = ConnectionFactory.getConnection()) {
+            AlunoDAO alunoDAO = new AlunoDAO(conn);
+            return alunoDAO.buscarPorMatricula(matriculaTratada);
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao buscar aluno por matrÃ­cula.", e);
+        }
+    }
+
+    public List<Aluno> listarAlunos() {
+        try (Connection conn = ConnectionFactory.getConnection()) {
+            AlunoDAO alunoDAO = new AlunoDAO(conn);
+            return alunoDAO.listar();
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao listar alunos.", e);
+        }
+    }
 }
+
+
