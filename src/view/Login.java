@@ -2,95 +2,109 @@
 
 package view;
 
-import java.awt.EventQueue;
-import java.awt.Image;
 import java.awt.Color;
 import java.awt.Cursor;
+import java.awt.EventQueue;
 import java.awt.Font;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.Image;
 import java.awt.Toolkit;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
-
-import javax.swing.JFrame;
-import javax.swing.JPanel;
-import javax.swing.border.EmptyBorder;
-import javax.swing.JLabel;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
-import javax.swing.JButton;
+import javax.swing.border.CompoundBorder;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
 
 public class Login extends JFrame {
 	private static final long serialVersionUID = 1L;
+	
+	//Declaração das cores a serem utilizadas
+	private final Color corExterna = new Color(27,0,69);
+    private final Color corInterna = new Color(38,2,92);
+    private final Color campo = new Color(25, 6, 75);
+    private final Color borda = new Color(145, 85, 220);
+    private final Color textoSecundario = new Color(190,160,230);
+    private final Color textos = Color.WHITE;
+    
+    //Declaração do campo de senha
 	private JPasswordField pfSenha;
 	private char echoChar;
 	private boolean passwordVisible = false;
 
-	/**
-	 * Launch the application.
-	 */
 	public static void main(String[] args) {
-		EventQueue.invokeLater(new Runnable() {
-			public void run() {
-				try {
-					Login frame = new Login();
-					frame.setVisible(true);
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			}
-		});
+		EventQueue.invokeLater(() -> {
+                    try {
+                        Login frame = new Login();
+                        frame.setVisible(true);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                });
 	}
 
-	// Create the frame.
+	//Cria o JFrame
 	public Login() {
 		setResizable(false);
-		setTitle("JetCoder's");
-		setIconImage(Toolkit.getDefaultToolkit().getImage("resources/Images/JetCoder's fundo preto.jpeg"));
+		setTitle("E.E.B. Solo Firme");
+		setIconImage(Toolkit.getDefaultToolkit().getImage("resources/Images/Solo Firme.png"));
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setBounds(100, 100, 700, 750);
 		setLocationRelativeTo(null);
 
+		//Cria e configura o painel "externo"
 		JPanel externo = new JPanel();
-		externo.setBackground(new Color(18, 3, 50));
+		externo.setBackground(corExterna);
 		externo.setBorder(new EmptyBorder(5, 5, 5, 5));
 		setContentPane(externo);
 		externo.setLayout(null);
 
+		//Cria e configura o painel "interno"
 		JPanel interno = new JPanel();
 		interno.setBounds(42, 30, 600, 650);
 		externo.add(interno);
-		interno.setBackground(new Color(20, 3, 80));
+		interno.setBackground(corInterna);
 		interno.setLayout(null);
 
+		//Cria a label para aplicar a logo do PJP
 		JLabel lblLogoPJP = new JLabel();
-		ImageIcon iconePjp = new ImageIcon("resources/Images/pjp.png");
+		ImageIcon iconePjp = new ImageIcon("resources/Images/PJP.png");
 		Image imgPjp = iconePjp.getImage().getScaledInstance(360, 260, Image.SCALE_SMOOTH);
-
 		lblLogoPJP.setIcon(new ImageIcon(imgPjp));
 		lblLogoPJP.setBounds(113, 11, 360, 140);
 		interno.add(lblLogoPJP);
 
+		//Cria a label para aplicar a logo do Senac
 		JLabel lblLogoSenac = new JLabel();
-		ImageIcon iconeSenac = new ImageIcon("resources/Images/Senac_logo.png");
+		ImageIcon iconeSenac = new ImageIcon("resources/Images/Senac.png");
 		Image imgSenac = iconeSenac.getImage().getScaledInstance(150, 100, Image.SCALE_SMOOTH);
 		lblLogoSenac.setIcon(new ImageIcon(imgSenac));
 		lblLogoSenac.setBounds(210, 530, 150, 100);
 		interno.add(lblLogoSenac);
 
+		//Cria e configura o campo para Login
 		JTextField txtCpf = new JTextField();
 		txtCpf.setFont(new Font("Dialog", Font.PLAIN, 20));
 		txtCpf.setBounds(30, 320, 520, 40);
-		txtCpf.setBorder(null);
-
+		txtCpf.setBackground(campo);
+		txtCpf.setBorder(new CompoundBorder(new LineBorder(borda, 1, true), null));
+		txtCpf.setForeground(textos);
+		
+		//Cria a máscara para CPF
 		txtCpf.addKeyListener(new KeyAdapter() {
 			@Override
 			public void keyReleased(KeyEvent e) {
 				String texto = txtCpf.getText();
 
+				//Configura para apenas números
 				texto = texto.replaceAll("[^0-9]", "");
 
 				if (texto.length() > 11) {
@@ -109,51 +123,61 @@ public class Login extends JFrame {
 		});
 		interno.add(txtCpf);
 
+		//Cria e configura a label informativa para Email
 		JLabel lblEmail = new JLabel("CPF");
 		lblEmail.setFont(new Font("Times New Roman", Font.PLAIN, 22));
 		lblEmail.setHorizontalAlignment(SwingConstants.CENTER);
-		lblEmail.setForeground(new Color(255, 255, 255));
+		lblEmail.setForeground(textos);
 		lblEmail.setBounds(12, 284, 80, 40);
 		interno.add(lblEmail);
 
+		//Cria e configura a label informativa para Senha
 		JLabel lblSenha = new JLabel("Senha");
 		lblSenha.setFont(new Font("Times New Roman", Font.PLAIN, 22));
 		lblSenha.setHorizontalAlignment(SwingConstants.LEFT);
-		lblSenha.setForeground(new Color(255, 255, 255));
+		lblSenha.setForeground(textos);
 		lblSenha.setBounds(30, 371, 100, 40);
 		interno.add(lblSenha);
 
+		////Cria e configura a label informativa para "Acesso"
 		JLabel lblAcesso = new JLabel("Acesse a sua conta");
 		lblAcesso.setFont(new Font("Mongolian Baiti", Font.BOLD, 28));
 		lblAcesso.setHorizontalAlignment(SwingConstants.CENTER);
-		lblAcesso.setForeground(new Color(255, 255, 255));
+		lblAcesso.setForeground(textos);
 		lblAcesso.setBounds(90, 150, 416, 100);
 		interno.add(lblAcesso);
 
+		////Cria e configura a label informativa para "texto secundário"
 		JLabel lblCredenciais = new JLabel("Informe as suas credenciais para acessar o sistema");
 		lblCredenciais.setFont(new Font("Montserrat", Font.BOLD, 16));
 		lblCredenciais.setHorizontalAlignment(SwingConstants.CENTER);
-		lblCredenciais.setForeground(new Color(255, 255, 255));
+		lblCredenciais.setForeground(textos);
 		lblCredenciais.setBounds(80, 200, 416, 100);
 		interno.add(lblCredenciais);
 
+		//Cria e configura o campo da senha
 		pfSenha = new JPasswordField();
 		pfSenha.setFont(new Font("Dialog", Font.PLAIN, 20));
-		pfSenha.setBorder(null);
+		pfSenha.setBackground(campo);
+		pfSenha.setBorder(new CompoundBorder(new LineBorder(borda, 1, true), null));
+		pfSenha.setForeground(textos);
 		pfSenha.setBounds(30, 410, 495, 40);
 		interno.add(pfSenha);
 		echoChar = pfSenha.getEchoChar();
 
+		//Cria e configura o label "olho" - Mostrar e ocultar a senha
 		JLabel lblEye = new JLabel("👁");
 		lblEye.setFont(new Font("Dialog", Font.BOLD, 22));
+		lblEye.setCursor(new Cursor(Cursor.HAND_CURSOR));
 		lblEye.setAutoscrolls(true);
 		lblEye.setOpaque(true);
-		lblEye.setBackground(Color.WHITE);
-		lblEye.setForeground(Color.BLACK);
+		lblEye.setBackground(campo);
+		lblEye.setForeground(textos);
+		lblEye.setBorder(new CompoundBorder(new LineBorder(borda, 1, true), null));
 		lblEye.setSize(25, 40);
 		lblEye.setLocation(525, 410);
-		lblEye.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
+		//Configura o "mostrar e ocultar a senha"
 		lblEye.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseClicked(MouseEvent e) {
@@ -167,14 +191,15 @@ public class Login extends JFrame {
 		});
 		interno.add(lblEye);
 
+		//Cria e configura o botão
 		JButton btnEntrar = new JButton("ENTRAR");
 		btnEntrar.setFont(new Font("Montserrat", Font.BOLD, 18));
-		btnEntrar.setBackground(new Color(0, 128, 255));
-		btnEntrar.setForeground(new Color(255, 255, 255));
+		btnEntrar.setBackground(corExterna);
+		btnEntrar.setForeground(textoSecundario);
 		btnEntrar.setBounds(45, 480, 480, 45);
 		btnEntrar.setCursor(new Cursor(Cursor.HAND_CURSOR));
 		btnEntrar.setFocusPainted(false);
-		btnEntrar.setBorderPainted(false);
+		btnEntrar.setBorder(new LineBorder(borda, 1, true));
 		interno.add(btnEntrar);
 	}
 }
