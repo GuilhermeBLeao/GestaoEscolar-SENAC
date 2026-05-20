@@ -545,36 +545,85 @@ public class MatriculaAluno extends JFrame {
 		// DOCUMENTOS DA MÃE
 		// =========================
 
+		JPanel painelDocsMae = new JPanel();
+		painelDocsMae.setLayout(null);
+		painelDocsMae.setBounds(680 + deslocamentoX, 145, 200, 120);
+
+		painelDocsMae.setBackground(corExterna);
+
+		painelDocsMae.setBorder(
+		    BorderFactory.createLineBorder(corBorda, 1, true)
+		);
+
+		abaPais.add(painelDocsMae);
+
+		// Título
+		JLabel lblDocsMae = new JLabel("Documentos da Mãe");
+		lblDocsMae.setBounds(15, 5, 200, 25);
+		lblDocsMae.setForeground(textos);
+		lblDocsMae.setFont(new Font("Arial", Font.BOLD, 16));
+
+		painelDocsMae.add(lblDocsMae);
+
+		// CPF da mãe
 		JCheckBox chckbxCPFMae = new JCheckBox("CPF da Mãe");
-		chckbxCPFMae.setBounds(700 + deslocamentoX, 160, 220, 35);
+		chckbxCPFMae.setBounds(15, 35, 170, 30);
 		chckbxCPFMae.setBackground(corExterna);
 		chckbxCPFMae.setForeground(textos);
 		chckbxCPFMae.setFont(new Font("Arial", Font.BOLD, 16));
-		abaPais.add(chckbxCPFMae);
 
+		painelDocsMae.add(chckbxCPFMae);
+
+		// RG da mãe
 		JCheckBox chckbxRGMae = new JCheckBox("RG da Mãe");
-		chckbxRGMae.setBounds(700 + deslocamentoX, 205, 220, 35);
+		chckbxRGMae.setBounds(15, 70, 170, 30);
 		chckbxRGMae.setBackground(corExterna);
 		chckbxRGMae.setForeground(textos);
 		chckbxRGMae.setFont(new Font("Arial", Font.BOLD, 16));
-		abaPais.add(chckbxRGMae);
+
+		painelDocsMae.add(chckbxRGMae);
+
 
 		// =========================
 		// DOCUMENTOS DO PAI
 		// =========================
 
+		JPanel painelDocsPai = new JPanel();
+		painelDocsPai.setLayout(null);
+		painelDocsPai.setBounds(680 + deslocamentoX, 440, 210, 120);
+
+		painelDocsPai.setBackground(corExterna);
+
+		painelDocsPai.setBorder(
+		    BorderFactory.createLineBorder(corBorda, 1, true)
+		);
+
+		abaPais.add(painelDocsPai);
+
+		// Título
+		JLabel lblDocsPai = new JLabel("Documentos do Pai");
+		lblDocsPai.setBounds(15, 5, 200, 25);
+		lblDocsPai.setForeground(textos);
+		lblDocsPai.setFont(new Font("Arial", Font.BOLD, 16));
+
+		painelDocsPai.add(lblDocsPai);
+
+		// CPF do pai
 		JCheckBox chckbxCPFPai = new JCheckBox("CPF do Pai");
-		chckbxCPFPai.setBounds(700 + deslocamentoX, 455, 220, 35);
+		chckbxCPFPai.setBounds(15, 35, 170, 30);
 		chckbxCPFPai.setBackground(corExterna);
 		chckbxCPFPai.setForeground(textos);
 		chckbxCPFPai.setFont(new Font("Arial", Font.BOLD, 16));
-		abaPais.add(chckbxCPFPai);
 
+		painelDocsPai.add(chckbxCPFPai);
+
+		// RG do pai
 		JCheckBox chckbxRGPai = new JCheckBox("RG do Pai");
-		chckbxRGPai.setBounds(700 + deslocamentoX, 500, 220, 35);
+		chckbxRGPai.setBounds(15, 70, 170, 30);
 		chckbxRGPai.setBackground(corExterna);
 		chckbxRGPai.setForeground(textos);
 		chckbxRGPai.setFont(new Font("Arial", Font.BOLD, 16));
-		abaPais.add(chckbxRGPai);
+
+		painelDocsPai.add(chckbxRGPai);
 	}
 }
