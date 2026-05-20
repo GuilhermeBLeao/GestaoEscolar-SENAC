@@ -527,7 +527,7 @@ public class MatriculaAluno extends JFrame {
 
 		// Nome do pai
 		label(abaPais, "Nome completo do pai", 40 + deslocamentoX, 430);
-		campo(abaPais, "Digite o nome completo da pai", 40 + deslocamentoX, 455, 250);
+		campo(abaPais, "Digite o nome completo do pai", 40 + deslocamentoX, 455, 250);
 
 		// CPF do pai
 		label(abaPais, "CPF do pai", 40 + deslocamentoX, 520);
