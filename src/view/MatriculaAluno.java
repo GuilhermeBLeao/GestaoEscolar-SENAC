@@ -9,12 +9,14 @@ import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.GraphicsEnvironment;
 import java.awt.Insets;
+import java.awt.LayoutManager;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.text.ParseException;
 
 import variaveisEnum.Estado;
 
+import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFormattedTextField;
@@ -30,6 +32,7 @@ import javax.swing.SwingConstants;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
+import javax.swing.plaf.basic.BasicTabbedPaneUI;
 import javax.swing.text.MaskFormatter;
 import javax.swing.JCheckBox;
 
@@ -118,13 +121,44 @@ public class MatriculaAluno extends JFrame {
 		linha.setForeground(corBorda);
 		interno.add(linha);
 
+
+
 		// Criação do JTabbedPane
 		JTabbedPane abas = new JTabbedPane();
+		abas.setTabPlacement(JTabbedPane.TOP);
 		abas.setBounds(10, 165, larguraInterno - 40, 650);
 		abas.setFont(new Font("Arial", Font.BOLD, 16));
 		abas.setBackground(corExterna);
 		abas.setForeground(Color.WHITE);
+		
+		abas.setUI(new BasicTabbedPaneUI() {
+
+            @Override
+            protected LayoutManager createLayoutManager() {
+                return new TabbedPaneLayout() {
+
+                    @Override
+                    protected void calculateTabRects(int tabPlacement, int tabCount) {
+                        super.calculateTabRects(tabPlacement, tabCount);
+
+                        int totalWidth = 0;
+                        
+                        for (int i = 0; i < rects.length; i++) {
+                            totalWidth += rects[i].width;
+                        }
+
+                        int margem = (abas.getWidth() - totalWidth) / 2;
+
+                        for (int i = 0; i < rects.length; i++) {
+                            rects[i].x += margem;
+                        }
+                    }
+                };
+            }
+        });
+		
 		interno.add(abas);
+		
 
 		// Criação das abas
 		JPanel abaAluno = criarAba();
@@ -349,26 +383,52 @@ public class MatriculaAluno extends JFrame {
 		// DOCUMENTOS DO ALUNO
 		// =========================
 
+		JPanel painelDocumentos = new JPanel();
+		painelDocumentos.setLayout(null);
+		painelDocumentos.setBounds(920 + deslocamentoX, 335, 280, 140);
+
+		painelDocumentos.setBackground(corExterna);
+
+		painelDocumentos.setBorder(
+		    BorderFactory.createLineBorder(corBorda, 1, true)
+		);
+
+		abaAluno.add(painelDocumentos);
+
+		// Título opcional
+		JLabel lblDocs = new JLabel("Documentos");
+		lblDocs.setBounds(15, 5, 200, 25);
+		lblDocs.setForeground(textos);
+		lblDocs.setFont(new Font("Arial", Font.BOLD, 16));
+
+		painelDocumentos.add(lblDocs);
+
+		// RG
 		JCheckBox chckbxRGAluno = new JCheckBox("RG do Aluno");
-		chckbxRGAluno.setBounds(950 + deslocamentoX, 345, 220, 35);
+		chckbxRGAluno.setBounds(15, 35, 220, 30);
 		chckbxRGAluno.setBackground(corExterna);
 		chckbxRGAluno.setForeground(textos);
 		chckbxRGAluno.setFont(new Font("Arial", Font.BOLD, 16));
-		abaAluno.add(chckbxRGAluno);
 
+		painelDocumentos.add(chckbxRGAluno);
+
+		// CPF
 		JCheckBox chckbxCPFAluno = new JCheckBox("CPF do Aluno");
-		chckbxCPFAluno.setBounds(950 + deslocamentoX, 385, 220, 35);
+		chckbxCPFAluno.setBounds(15, 65, 220, 30);
 		chckbxCPFAluno.setBackground(corExterna);
 		chckbxCPFAluno.setForeground(textos);
 		chckbxCPFAluno.setFont(new Font("Arial", Font.BOLD, 16));
-		abaAluno.add(chckbxCPFAluno);
 
+		painelDocumentos.add(chckbxCPFAluno);
+
+		// Comprovante
 		JCheckBox chckbxComprovante = new JCheckBox("Comprovante de Residência");
-		chckbxComprovante.setBounds(950 + deslocamentoX, 425, 320, 35);
+		chckbxComprovante.setBounds(15, 95, 245, 30);
 		chckbxComprovante.setBackground(corExterna);
 		chckbxComprovante.setForeground(textos);
 		chckbxComprovante.setFont(new Font("Arial", Font.BOLD, 16));
-		abaAluno.add(chckbxComprovante);
+
+		painelDocumentos.add(chckbxComprovante);
 	}
 
 	// Método responsável por montar os componentes da aba endereço
@@ -467,7 +527,7 @@ public class MatriculaAluno extends JFrame {
 
 		// Nome do pai
 		label(abaPais, "Nome completo do pai", 40 + deslocamentoX, 430);
-		campo(abaPais, "Digite o nome completo da mãe", 40 + deslocamentoX, 455, 250);
+		campo(abaPais, "Digite o nome completo da pai", 40 + deslocamentoX, 455, 250);
 
 		// CPF do pai
 		label(abaPais, "CPF do pai", 40 + deslocamentoX, 520);
