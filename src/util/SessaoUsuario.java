@@ -1,4 +1,4 @@
-//Guilherme
+// Guilherme
 
 package util;
 
@@ -6,38 +6,39 @@ import model.Usuario;
 
 public final class SessaoUsuario {
 
-	private static final ThreadLocal<Usuario> usuarioLogado = new ThreadLocal<>();
-	/*
-	 * ThreadLocal cria uma "variável separada por thread". Ou seja: cada execução
-	 * (thread) terá seu próprio usuarioLogado. Isso evita que um usuário
-	 * sobrescreva o outro em outra thread.
-	 */
+  private static final ThreadLocal<Usuario> usuarioLogado = new ThreadLocal<>();
 
-	private SessaoUsuario() {
-		// Construtor privado para impedir instanciação
-	}
+  /*
+   * ThreadLocal cria uma "variável separada por thread". Ou seja: cada execução
+   * (thread) terá seu próprio usuarioLogado. Isso evita que um usuário
+   * sobrescreva o outro em outra thread.
+   */
 
-	public static Usuario getUsuarioLogado() {
-		return usuarioLogado.get();
-	}
+  private SessaoUsuario() {
+    // Construtor privado para impedir instanciação
+  }
 
-	public static void setUsuarioLogado(Usuario usuario) {
-		if (usuario == null) {
-			throw new IllegalArgumentException("Usuário não pode ser nulo.");
-		}
+  public static Usuario getUsuarioLogado() {
+    return usuarioLogado.get();
+  }
 
-		if (existeUsuarioLogado()) {
-			throw new IllegalStateException(
-					"Já existe uma sessão ativa. Encerre a sessão atual antes de iniciar outra.");
-		}
-		usuarioLogado.set(usuario);
-	}
+  public static void setUsuarioLogado(Usuario usuario) {
+    if (usuario == null) {
+      throw new IllegalArgumentException("Usuário não pode ser nulo.");
+    }
 
-	public static boolean existeUsuarioLogado() {
-		return usuarioLogado.get() != null;
-	}
+    if (existeUsuarioLogado()) {
+      throw new IllegalStateException(
+          "Já existe uma sessão ativa. Encerre a sessão atual antes de iniciar outra.");
+    }
+    usuarioLogado.set(usuario);
+  }
 
-	public static void encerrarSessao() {
-		usuarioLogado.remove();
-	}
+  public static boolean existeUsuarioLogado() {
+    return usuarioLogado.get() != null;
+  }
+
+  public static void encerrarSessao() {
+    usuarioLogado.remove();
+  }
 }

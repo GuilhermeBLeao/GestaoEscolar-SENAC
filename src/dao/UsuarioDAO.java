@@ -1,15 +1,24 @@
-//Guilherme
+// Guilherme
 
 package dao;
 
-import model.Usuario;
-import util.ValidaCPF;
-import variaveisEnum.TipoUsuario;
-
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+
+import dto.UsuarioConsultaDTO;
+import model.Usuario;
+import util.SqlDates;
+import util.ValidaCPF;
+import variaveisEnum.TipoUsuario;
 
 public class UsuarioDAO {
 
@@ -31,7 +40,7 @@ public class UsuarioDAO {
 				SELECT 1
 				FROM usuario
 				WHERE %s = ?
-				  AND id_usuario <> ?
+				AND id_usuario <> ?
 				""".formatted(coluna);
 
 		try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -83,16 +92,16 @@ public class UsuarioDAO {
 
 		final String sql = """
 				INSERT INTO usuario (
-				    cpf,
-				    senha_hash,
-				    ativo,
-				    data_criacao,
-				    ultimo_login,
-				    tipo_usuario,
-				    aluno_id,
-				    funcionario_id,
-				    pai_id,
-				    professor_id
+				cpf,
+				senha_hash,
+				ativo,
+				data_criacao,
+				ultimo_login,
+				tipo_usuario,
+				aluno_id,
+				funcionario_id,
+				pai_id,
+				professor_id
 				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 				""";
 
@@ -123,14 +132,14 @@ public class UsuarioDAO {
 
 		final String sql = """
 				UPDATE usuario
-				   SET senha_hash = ?,
-				       tipo_usuario = ?,
-				       aluno_id = ?,
-				       funcionario_id = ?,
-				       pai_id = ?,
-				       professor_id = ?
-				 WHERE id_usuario = ?
-				   AND ativo = true
+				SET senha_hash = ?,
+				tipo_usuario = ?,
+				aluno_id = ?,
+				funcionario_id = ?,
+				pai_id = ?,
+				professor_id = ?
+				WHERE id_usuario = ?
+				AND ativo = true
 				""";
 
 		try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -160,8 +169,8 @@ public class UsuarioDAO {
 
 		final String sql = """
 				UPDATE usuario
-				   SET ultimo_login = ?
-				 WHERE id_usuario = ?
+				SET ultimo_login = ?
+				WHERE id_usuario = ?
 				""";
 
 		try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -186,9 +195,9 @@ public class UsuarioDAO {
 
 		final String sql = """
 				UPDATE usuario
-				   SET senha_hash = ?
-				 WHERE id_usuario = ?
-				   AND ativo = true
+				SET senha_hash = ?
+				WHERE id_usuario = ?
+				AND ativo = true
 				""";
 
 		try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -301,9 +310,9 @@ public class UsuarioDAO {
 
 		final String sql = """
 				UPDATE usuario
-				   SET ativo = false
-				 WHERE id_usuario = ?
-				   AND ativo = true
+				SET ativo = false
+				WHERE id_usuario = ?
+				AND ativo = true
 				""";
 
 		try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -325,9 +334,9 @@ public class UsuarioDAO {
 
 		final String sql = """
 				UPDATE usuario
-				   SET ativo = true
-				 WHERE id_usuario = ?
-				   AND ativo = false
+				SET ativo = true
+				WHERE id_usuario = ?
+				AND ativo = false
 				""";
 
 		try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -428,9 +437,9 @@ public class UsuarioDAO {
 		usuario.setSenhaHash(rs.getString("senha_hash"));
 		usuario.setAtivo(rs.getBoolean("ativo"));
 
-		Date dataCriacao = rs.getDate("data_criacao");
+		java.time.LocalDate dataCriacao = SqlDates.getLocalDate(rs, "data_criacao");
 		if (dataCriacao != null) {
-			usuario.carregarDataCriacaoDoBanco(dataCriacao.toLocalDate());
+			usuario.carregarDataCriacaoDoBanco(dataCriacao);
 		}
 
 		Timestamp ultimoLogin = rs.getTimestamp("ultimo_login");
@@ -534,5 +543,76 @@ public class UsuarioDAO {
 				}
 			}
 		}
+	}
+
+	public List<UsuarioConsultaDTO> pesquisarUsuarios(String filtro) throws SQLException {
+
+		final String sql = """
+				SELECT
+				    u.id_usuario,
+
+				    COALESCE(
+				        a.nome,
+				        f.nome,
+				        p.nome,
+				        pa.nome
+				    ) AS nome,
+
+				    u.cpf,
+				    u.tipo_usuario
+
+				FROM usuario u
+
+				LEFT JOIN aluno a
+				       ON a.id_aluno = u.aluno_id
+
+				LEFT JOIN funcionario f
+				       ON f.id_funcionario = u.funcionario_id
+
+				LEFT JOIN professor p
+				       ON p.id_professor = u.professor_id
+
+				LEFT JOIN pai pa
+				       ON pa.id_pais = u.pai_id
+
+				WHERE
+				    UPPER(COALESCE(
+				        a.nome,
+				        f.nome,
+				        p.nome,
+				        pa.nome
+				    )) LIKE UPPER(?)
+
+				    OR u.cpf LIKE ?
+
+				ORDER BY nome
+				""";
+
+		List<UsuarioConsultaDTO> usuarios = new ArrayList<>();
+
+		try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+			String busca = "%" + filtro.trim() + "%";
+
+			stmt.setString(1, busca);
+			stmt.setString(2, busca);
+
+			try (ResultSet rs = stmt.executeQuery()) {
+
+				while (rs.next()) {
+
+					UsuarioConsultaDTO dto = new UsuarioConsultaDTO();
+
+					dto.setIdUsuario(rs.getInt("id_usuario"));
+					dto.setNome(rs.getString("nome"));
+					dto.setCpf(rs.getString("cpf"));
+					dto.setTipoUsuario(rs.getString("tipo_usuario"));
+
+					usuarios.add(dto);
+				}
+			}
+		}
+
+		return usuarios;
 	}
 }

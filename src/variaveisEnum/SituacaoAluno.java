@@ -1,11 +1,15 @@
-//Guilherme
+// Guilherme
 
 package variaveisEnum;
 
 public enum SituacaoAluno {
-	ATIVO, INATIVO, TRANCADO, TRANSFERIDO, CONCLUIDO;
+  ATIVO,
+  INATIVO,
+  TRANCADO,
+  TRANSFERIDO,
+  CONCLUIDO;
 
-	public boolean isAtivo() {
-		return this == ATIVO;
-	}
+  public boolean isAtivo() {
+    return this == ATIVO;
+  }
 }
