@@ -1,6 +1,11 @@
-//Guilherme
+// Guilherme
 
 package controller;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 import dao.AlunoDAO;
 import dao.FuncionarioDAO;
@@ -16,153 +21,163 @@ import util.SessaoUsuario;
 import util.ValidaCPF;
 import variaveisEnum.TipoUsuario;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-
 public class DeclaracaoMatriculaController {
 
-	public DeclaracaoMatricula montarDeclaracao(int alunoId, int anoLetivo) {
-		if (alunoId <= 0) {
-			throw new IllegalArgumentException("ID do aluno é inválido.");
-		}
+  public DeclaracaoMatricula montarDeclaracao(int alunoId, int anoLetivo) {
+    if (alunoId <= 0) {
+      throw new IllegalArgumentException("ID do aluno é inválido.");
+    }
 
-		if (anoLetivo < 2000) {
-			throw new IllegalArgumentException("Ano letivo está vazio ou é anterior a 2000.");
-		}
+    if (anoLetivo < 2000) {
+      throw new IllegalArgumentException("Ano letivo está vazio ou é anterior a 2000.");
+    }
 
-		Usuario usuarioLogado = SessaoUsuario.getUsuarioLogado();
+    Usuario usuarioLogado = SessaoUsuario.getUsuarioLogado();
 
-		if (usuarioLogado == null) {
-			throw new IllegalArgumentException("Nenhum usuário logado.");
-		}
+    if (usuarioLogado == null) {
+      throw new IllegalArgumentException("Nenhum usuário logado.");
+    }
 
-		if (usuarioLogado.getTipoUsuario() == null || usuarioLogado.getTipoUsuario() != TipoUsuario.SECRETARIA) {
-			throw new IllegalArgumentException("Apenas usuários da secretaria podem gerar declaração de matrícula.");
-		}
+    if (usuarioLogado.getTipoUsuario() == null
+        || usuarioLogado.getTipoUsuario() != TipoUsuario.SECRETARIA) {
+      throw new IllegalArgumentException(
+          "Apenas usuários da secretaria podem gerar declaração de matrícula.");
+    }
 
-		if (usuarioLogado.getFuncionarioId() <= 0) {
-			throw new IllegalArgumentException("O usuário logado não está vinculado a um funcionário.");
-		}
+    if (usuarioLogado.getFuncionarioId() <= 0) {
+      throw new IllegalArgumentException("O usuário logado não está vinculado a um funcionário.");
+    }
 
-		try (Connection conn = ConnectionFactory.getConnection()) {
-			AlunoDAO alunoDAO = new AlunoDAO(conn);
-			TurmaDAO turmaDAO = new TurmaDAO(conn);
-			FuncionarioDAO funcionarioDAO = new FuncionarioDAO(conn);
+    try (Connection conn = ConnectionFactory.getConnection()) {
+      AlunoDAO alunoDAO = new AlunoDAO(conn);
+      TurmaDAO turmaDAO = new TurmaDAO(conn);
+      FuncionarioDAO funcionarioDAO = new FuncionarioDAO(conn);
 
-			Aluno aluno = alunoDAO.buscarPorId(alunoId);
+      Aluno aluno = alunoDAO.buscarPorId(alunoId);
 
-			if (aluno == null) {
-				throw new IllegalArgumentException("Aluno não encontrado.");
-			}
+      if (aluno == null) {
+        throw new IllegalArgumentException("Aluno não encontrado.");
+      }
 
-			if (!aluno.isAtivo()) {
-				throw new IllegalArgumentException("Aluno está inativo.");
-			}
+      if (!aluno.isAtivo()) {
+        throw new IllegalArgumentException("Aluno está inativo.");
+      }
 
-			TurmaAlunoDAO turmaAlunoDAO = new TurmaAlunoDAO(conn);
-			model.TurmaAluno turmaAlunoHistorico = turmaAlunoDAO.buscarPorAlunoEAnoLetivo(alunoId, anoLetivo);
+      TurmaAlunoDAO turmaAlunoDAO = new TurmaAlunoDAO(conn);
+      model.TurmaAluno turmaAlunoHistorico =
+          turmaAlunoDAO.buscarPorAlunoEAnoLetivo(alunoId, anoLetivo);
 
-			if (turmaAlunoHistorico == null) {
-				throw new IllegalArgumentException("Não foi encontrada turma do aluno para o ano letivo informado.");
-			}
+      if (turmaAlunoHistorico == null) {
+        throw new IllegalArgumentException(
+            "Não foi encontrada turma do aluno para o ano letivo informado.");
+      }
 
-			Turma turma = turmaDAO.buscarPorId(turmaAlunoHistorico.getTurmaId());
+      Turma turma = turmaDAO.buscarPorId(turmaAlunoHistorico.getTurmaId());
 
-			if (turma == null) {
-				throw new IllegalArgumentException("Turma do aluno no ano letivo informado não foi encontrada.");
-			}
+      if (turma == null) {
+        throw new IllegalArgumentException(
+            "Turma do aluno no ano letivo informado não foi encontrada.");
+      }
 
-			Funcionario funcionario = funcionarioDAO.buscarPorId(usuarioLogado.getFuncionarioId());
+      Funcionario funcionario = funcionarioDAO.buscarPorId(usuarioLogado.getFuncionarioId());
 
-			if (funcionario == null) {
-				throw new IllegalArgumentException("Funcionário vinculado ao usuário logado não foi encontrado.");
-			}
+      if (funcionario == null) {
+        throw new IllegalArgumentException(
+            "Funcionário vinculado ao usuário logado não foi encontrado.");
+      }
 
-			DeclaracaoMatricula declaracao = new DeclaracaoMatricula();
+      DeclaracaoMatricula declaracao = new DeclaracaoMatricula();
 
-			declaracao.setAlunoId(aluno.getIdAluno());
-			declaracao.setNomeAluno(aluno.getNome().trim());
-			declaracao.setMatricula(aluno.getMatricula());
-			declaracao.setCpf(aluno.getCpf());
-			declaracao.setTurma(turma.getDescricaoTurma());
-			declaracao.setAnoLetivo(anoLetivo);
-			declaracao.setDataEmissao(LocalDate.now());
-			declaracao.setNomeFuncionario(funcionario.getNome());
-			declaracao.setCargoFuncionario(funcionario.getCargo());
+      declaracao.setAlunoId(aluno.getIdAluno());
+      declaracao.setNomeAluno(aluno.getNome().trim());
+      declaracao.setMatricula(aluno.getMatricula());
+      declaracao.setCpf(aluno.getCpf());
+      declaracao.setTurma(turma.getDescricaoTurma());
+      declaracao.setAnoLetivo(anoLetivo);
+      declaracao.setDataEmissao(LocalDate.now());
+      declaracao.setNomeFuncionario(funcionario.getNome());
+      declaracao.setCargoFuncionario(funcionario.getCargo());
 
-			validarDeclaracao(declaracao);
+      validarDeclaracao(declaracao);
 
-			return declaracao;
+      return declaracao;
 
-		} catch (SQLException e) {
-			throw new RuntimeException("Erro ao montar declaração de matrícula.", e);
-		}
-	}
+    } catch (SQLException e) {
+      throw new RuntimeException("Erro ao montar declaração de matrícula.", e);
+    }
+  }
 
-	public String gerarTextoDeclaracao(DeclaracaoMatricula declaracao) {
-		validarDeclaracao(declaracao);
+  public String gerarTextoDeclaracao(DeclaracaoMatricula declaracao) {
+    validarDeclaracao(declaracao);
 
-		DateTimeFormatter formato = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    DateTimeFormatter formato = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-		return """
-											DECLARAÇÃO DE MATRÍCULA
+    return """
+    DECLARAÇÃO DE MATRÍCULA
 
-				Declaramos para os fins que se fizerem necessários, que o(a) aluno(a) %s,
-				portador(a) da matrícula %s, CPF %s, encontra-se regularmente matriculado(a)
-				na turma %s, no ano letivo de %d nesta instituição de ensino.
+    Declaramos para os fins que se fizerem necessários, que o(a) aluno(a) %s,
+    portador(a) da matrícula %s, CPF %s, encontra-se regularmente matriculado(a)
+    na turma %s, no ano letivo de %d nesta instituição de ensino.
 
-				Curitibanos, %s.
+    Curitibanos, %s.
 
 
-				__________________________________
-				%s
-				%s
-				""".formatted(declaracao.getNomeAluno(), declaracao.getMatricula(), declaracao.getCpf(),
-				declaracao.getTurma(), declaracao.getAnoLetivo(), declaracao.getDataEmissao().format(formato),
-				declaracao.getNomeFuncionario(), declaracao.getCargoFuncionario());
-	}
+    __________________________________
+    %s
+    %s
+    """
+        .formatted(
+            declaracao.getNomeAluno(),
+            declaracao.getMatricula(),
+            declaracao.getCpf(),
+            declaracao.getTurma(),
+            declaracao.getAnoLetivo(),
+            declaracao.getDataEmissao().format(formato),
+            declaracao.getNomeFuncionario(),
+            declaracao.getCargoFuncionario());
+  }
 
-	private void validarDeclaracao(DeclaracaoMatricula declaracao) {
-		if (declaracao == null) {
-			throw new IllegalArgumentException("Declaração de matrícula não pode ser nula.");
-		}
+  private void validarDeclaracao(DeclaracaoMatricula declaracao) {
+    if (declaracao == null) {
+      throw new IllegalArgumentException("Declaração de matrícula não pode ser nula.");
+    }
 
-		if (declaracao.getAlunoId() <= 0) {
-			throw new IllegalArgumentException("ID do aluno é inválido.");
-		}
+    if (declaracao.getAlunoId() <= 0) {
+      throw new IllegalArgumentException("ID do aluno é inválido.");
+    }
 
-		if (declaracao.getNomeAluno() == null || declaracao.getNomeAluno().trim().isEmpty()) {
-			throw new IllegalArgumentException("Nome do aluno é obrigatório.");
-		}
+    if (declaracao.getNomeAluno() == null || declaracao.getNomeAluno().trim().isEmpty()) {
+      throw new IllegalArgumentException("Nome do aluno é obrigatório.");
+    }
 
-		if (declaracao.getMatricula() == null || declaracao.getMatricula().trim().isEmpty()) {
-			throw new IllegalArgumentException("Matrícula é obrigatória.");
-		}
+    if (declaracao.getMatricula() == null || declaracao.getMatricula().trim().isEmpty()) {
+      throw new IllegalArgumentException("Matrícula é obrigatória.");
+    }
 
-		if (!ValidaCPF.isValido(declaracao.getCpf())) {
-			throw new IllegalArgumentException("CPF inválido.");
-		}
+    if (!ValidaCPF.isValido(declaracao.getCpf())) {
+      throw new IllegalArgumentException("CPF inválido.");
+    }
 
-		if (declaracao.getTurma() == null || declaracao.getTurma().trim().isEmpty()) {
-			throw new IllegalArgumentException("Turma é obrigatória.");
-		}
+    if (declaracao.getTurma() == null || declaracao.getTurma().trim().isEmpty()) {
+      throw new IllegalArgumentException("Turma é obrigatória.");
+    }
 
-		if (declaracao.getAnoLetivo() < 2000) {
-			throw new IllegalArgumentException("Ano letivo está vazio ou é anterior a 2000.");
-		}
+    if (declaracao.getAnoLetivo() < 2000) {
+      throw new IllegalArgumentException("Ano letivo está vazio ou é anterior a 2000.");
+    }
 
-		if (declaracao.getDataEmissao() == null) {
-			throw new IllegalArgumentException("Data de emissão é obrigatória.");
-		}
+    if (declaracao.getDataEmissao() == null) {
+      throw new IllegalArgumentException("Data de emissão é obrigatória.");
+    }
 
-		if (declaracao.getNomeFuncionario() == null || declaracao.getNomeFuncionario().trim().isEmpty()) {
-			throw new IllegalArgumentException("Nome do funcionário é obrigatório.");
-		}
+    if (declaracao.getNomeFuncionario() == null
+        || declaracao.getNomeFuncionario().trim().isEmpty()) {
+      throw new IllegalArgumentException("Nome do funcionário é obrigatório.");
+    }
 
-		if (declaracao.getCargoFuncionario() == null || declaracao.getCargoFuncionario().trim().isEmpty()) {
-			throw new IllegalArgumentException("Cargo do funcionário é obrigatório.");
-		}
-	}
+    if (declaracao.getCargoFuncionario() == null
+        || declaracao.getCargoFuncionario().trim().isEmpty()) {
+      throw new IllegalArgumentException("Cargo do funcionário é obrigatório.");
+    }
+  }
 }

@@ -3,40 +3,40 @@
 package model;
 
 public class BoletimItem {
-	private int idDisciplina;
-	private String nomeDisciplina, situacao;
-	private double media;
+  private int idDisciplina;
+  private String nomeDisciplina, situacao;
+  private double media;
 
-	public int getIdDisciplina() {
-		return idDisciplina;
-	}
+  public int getIdDisciplina() {
+    return idDisciplina;
+  }
 
-	public void setIdDisciplina(int idDisciplina) {
-		this.idDisciplina = idDisciplina;
-	}
+  public void setIdDisciplina(int idDisciplina) {
+    this.idDisciplina = idDisciplina;
+  }
 
-	public String getNomeDisciplina() {
-		return nomeDisciplina;
-	}
+  public String getNomeDisciplina() {
+    return nomeDisciplina;
+  }
 
-	public void setNomeDisciplina(String nomeDisciplina) {
-		this.nomeDisciplina = nomeDisciplina;
-	}
+  public void setNomeDisciplina(String nomeDisciplina) {
+    this.nomeDisciplina = nomeDisciplina;
+  }
 
-	public String getSituacao() {
-		return situacao;
-	}
+  public String getSituacao() {
+    return situacao;
+  }
 
-	public void setSituacao(String situacao) {
-		this.situacao = situacao;
-	}
+  public void setSituacao(String situacao) {
+    this.situacao = situacao;
+  }
 
-	public double getMedia() {
-		return media;
-	}
+  public double getMedia() {
+    return media;
+  }
 
-	public void setMedia(double media) {
-		this.media = media;
-		this.situacao = media >= 6.0 ? "APROVADO" : "REPROVADO";
-	}
+  public void setMedia(double media) {
+    this.media = media;
+    this.situacao = media >= 6.0 ? "APROVADO" : "REPROVADO";
+  }
 }
